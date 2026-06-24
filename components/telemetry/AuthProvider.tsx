@@ -22,6 +22,8 @@ interface AuthContextType {
   getAllUsers: () => User[];
   updateUserStatus: (id: string, status: User["status"], role: User["role"]) => void;
   deleteUser: (id: string) => void;
+  vehicleType: "IC" | "EV";
+  setVehicleType: (type: "IC" | "EV") => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -33,6 +35,8 @@ const AuthContext = createContext<AuthContextType>({
   getAllUsers: () => [],
   updateUserStatus: () => {},
   deleteUser: () => {},
+  vehicleType: "EV",
+  setVehicleType: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -40,6 +44,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [usersDb, setUsersDb] = useState<User[]>([]);
+  const [vehicleType, setVehicleTypeState] = useState<"IC" | "EV">("EV");
 
   // Auto-logout after 30 minutes of inactivity
   const [lastActivity, setLastActivity] = useState(Date.now());
@@ -58,15 +63,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUsersDb(initialDb);
       localStorage.setItem("mockUsersDb", JSON.stringify(initialDb));
     }
+
+    // Load from LocalStorage
+    const storedAuth = localStorage.getItem("authUser");
+    if (storedAuth) {
+      setUser(JSON.parse(storedAuth));
+      setLastActivity(Date.now());
+    }
+
+    const storedType = localStorage.getItem("vehicleType");
+    if (storedType === "IC" || storedType === "EV") {
+      setVehicleTypeState(storedType);
+    }
   }, []);
 
   useEffect(() => {
-    // Check for existing session on mount
-    const storedUser = localStorage.getItem("authUser");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-
     const activityHandler = () => setLastActivity(Date.now());
     window.addEventListener("mousemove", activityHandler);
     window.addEventListener("keydown", activityHandler);
@@ -170,10 +181,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const setVehicleType = (type: "IC" | "EV") => {
+    setVehicleTypeState(type);
+    localStorage.setItem("vehicleType", type);
+  };
+
   const isAdmin = user?.role === "admin" && user?.status === "active";
 
   return (
-    <AuthContext.Provider value={{ user, login, signUp, logout, isAdmin, getAllUsers, updateUserStatus, deleteUser }}>
+    <AuthContext.Provider value={{ user, login, signUp, logout, isAdmin, getAllUsers, updateUserStatus, deleteUser, vehicleType, setVehicleType }}>
       {children}
     </AuthContext.Provider>
   );

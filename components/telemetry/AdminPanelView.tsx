@@ -11,7 +11,7 @@ export default function AdminPanelView() {
   const [tempThreshold, setTempThreshold] = useState(80);
   const [mqttUrl, setMqttUrl] = useState("wss://2898b29c070f4985b025bbc1d2e1d216.s1.eu.hivemq.cloud:8884/mqtt");
   const [mqttUser, setMqttUser] = useState("dongtaan_vcu");
-  const [mqttPass, setMqttPass] = useState("••••••••");
+  const [mqttPass, setMqttPass] = useState("Frank2007");
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);

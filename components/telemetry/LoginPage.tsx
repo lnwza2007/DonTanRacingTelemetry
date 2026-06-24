@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "./AuthProvider";
 
 export default function LoginPage() {
-  const { login, signUp } = useAuth();
+  const { login, signUp, vehicleType, setVehicleType } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
 
   // Login State
@@ -75,6 +75,23 @@ export default function LoginPage() {
           <h1 className="text-xl font-bold font-inter tracking-wider text-white">
             {isSignUp ? "OPERATIVE REGISTRATION" : "VEHICLE TELEMETRY ACCESS"}
           </h1>
+        </div>
+
+        <div className="flex gap-4 justify-center mb-6">
+          <button 
+            type="button"
+            onClick={() => setVehicleType("IC")}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all border ${vehicleType === "IC" ? "bg-red-500/20 border-red-500 text-red-500" : "bg-transparent border-[#27272a] text-muted-foreground hover:border-red-500/50 hover:text-red-400"}`}
+          >
+            COMBUSTION (IC)
+          </button>
+          <button 
+            type="button"
+            onClick={() => setVehicleType("EV")}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all border ${vehicleType === "EV" ? "bg-blue-500/20 border-blue-500 text-blue-500" : "bg-transparent border-[#27272a] text-muted-foreground hover:border-blue-500/50 hover:text-blue-400"}`}
+          >
+            ELECTRIC (EV)
+          </button>
         </div>
 
         {isSignUp ? (
@@ -154,10 +171,27 @@ export default function LoginPage() {
               )}
             </AnimatePresence>
 
-            <motion.button whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(34, 197, 94, 0.2)" }} whileTap={{ scale: 0.98 }} type="submit" className="w-full py-3.5 bg-gradient-to-r from-cyan-500 to-[#22c55e] text-black font-bold text-sm rounded-lg flex items-center justify-center gap-2 transition-all uppercase tracking-wider">
-              <span>Authenticate</span>
-              <ChevronRight className="w-4 h-4" />
-            </motion.button>
+            <div className="flex gap-2">
+              <motion.button whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(34, 197, 94, 0.2)" }} whileTap={{ scale: 0.98 }} type="submit" className="flex-1 py-3.5 bg-gradient-to-r from-cyan-500 to-[#22c55e] text-black font-bold text-sm rounded-lg flex items-center justify-center gap-2 transition-all uppercase tracking-wider">
+                <span>Authenticate</span>
+                <ChevronRight className="w-4 h-4" />
+              </motion.button>
+
+              <motion.button 
+                whileHover={{ scale: 1.02 }} 
+                whileTap={{ scale: 0.98 }} 
+                type="button" 
+                onClick={async () => {
+                  const success = await login("guest", "guest");
+                  if (!success) {
+                    await signUp("Guest Observer", "guest", "guest", "guest");
+                  }
+                }}
+                className="px-6 py-3.5 bg-[#18181b] border border-[#27272a] hover:border-cyan-500 text-muted-foreground hover:text-white font-bold text-sm rounded-lg flex items-center justify-center transition-all uppercase tracking-wider"
+              >
+                <span>Guest</span>
+              </motion.button>
+            </div>
           </form>
         )}
 

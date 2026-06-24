@@ -19,8 +19,10 @@ const io = new Server(server, {
 // Configuration
 const MQTT_BROKER = "wss://2898b29c070f4985b025bbc1d2e1d216.s1.eu.hivemq.cloud:8884/mqtt";
 const MQTT_USER = "dongtaan_vcu";
-const MQTT_PASS = "racing2026";
-const MQTT_TOPIC = "balone2/telemetry/tire_fl";
+const MQTT_PASS = "Frank2007";
+const MQTT_TOPIC_TIRE = "balone2/telemetry/tire_fl";
+const MQTT_TOPIC_SUSP = "balone2/telemetry/suspension";
+const MQTT_TOPIC_VCU = "balone2/telemetry/vcu";
 const LOG_DIR = path.join(__dirname, 'logs');
 const HEARTBEAT_TIMEOUT = 5000;
 
@@ -48,9 +50,26 @@ const mqttClient = mqtt.connect(MQTT_BROKER, {
 
 mqttClient.on('connect', () => {
   console.log(`[MQTT] Connected to HiveMQ Cloud`);
-  mqttClient.subscribe(MQTT_TOPIC, (err) => {
+  
+  mqttClient.subscribe(MQTT_TOPIC_TIRE, (err) => {
     if (!err) {
-      console.log(`[MQTT] Subscribed to ${MQTT_TOPIC}`);
+      console.log(`[MQTT] Subscribed to ${MQTT_TOPIC_TIRE}`);
+    } else {
+      console.error(`[MQTT] Subscription error:`, err);
+    }
+  });
+
+  mqttClient.subscribe(MQTT_TOPIC_SUSP, (err) => {
+    if (!err) {
+      console.log(`[MQTT] Subscribed to ${MQTT_TOPIC_SUSP}`);
+    } else {
+      console.error(`[MQTT] Subscription error:`, err);
+    }
+  });
+
+  mqttClient.subscribe(MQTT_TOPIC_VCU, (err) => {
+    if (!err) {
+      console.log(`[MQTT] Subscribed to ${MQTT_TOPIC_VCU}`);
     } else {
       console.error(`[MQTT] Subscription error:`, err);
     }
@@ -89,27 +108,48 @@ const logToCsv = (rawString) => {
 };
 
 mqttClient.on('message', (topic, message) => {
-  if (topic === MQTT_TOPIC) {
-    resetHeartbeat();
-    const rawString = message.toString();
-    
-    // Log to file
-    logToCsv(rawString);
+  const rawString = message.toString();
+  resetHeartbeat();
+  logToCsv(`${topic},${rawString}`);
 
-    // Parse String CSV to JSON Array
-    // e.g. "25.1,26.2,25.5..." -> [25.1, 26.2, 25.5, ...]
+  if (topic === MQTT_TOPIC_TIRE) {
     try {
-      const parsedTemps = rawString.split(',').map(Number);
+      const parsedTemps = rawString.split(',').map(Number).filter(n => !isNaN(n));
       
       // Ensure we have valid data before broadcasting
-      if (parsedTemps.length > 0 && !isNaN(parsedTemps[0])) {
+      if (parsedTemps.length > 0) {
         io.emit('telemetry', {
           wheel: 'front_left',
           temps: parsedTemps
         });
       }
     } catch (e) {
-      console.error('[MQTT] Failed to parse message:', e);
+      console.error('[MQTT] Failed to parse tire message:', e);
+    }
+  } else if (topic === MQTT_TOPIC_SUSP) {
+    try {
+      const nums = rawString.split(',').map(Number).filter(n => !isNaN(n));
+      if (nums.length >= 4) {
+        io.emit('suspension', {
+          damperTravel: {
+            fl: nums[0],
+            fr: nums[1],
+            rl: nums[2],
+            rr: nums[3]
+          },
+          gForces: nums.length >= 6 ? { lat: nums[4], lon: nums[5] } : null,
+          angles: nums.length >= 9 ? { roll: nums[6], pitch: nums[7], yaw: nums[8] } : null
+        });
+      }
+    } catch (e) {
+      console.error('[MQTT] Failed to parse suspension message:', e);
+    }
+  } else if (topic === MQTT_TOPIC_VCU) {
+    try {
+      const parsed = JSON.parse(rawString);
+      io.emit('vcu', parsed);
+    } catch (e) {
+      console.error('[MQTT] Failed to parse VCU message:', e);
     }
   }
 });

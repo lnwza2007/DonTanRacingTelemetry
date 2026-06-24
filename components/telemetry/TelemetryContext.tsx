@@ -24,6 +24,8 @@ const DEFAULT_TELEMETRY = {
   batteryLevel: 100,
   lambda: 1.0,
   boostPressure: 0,
+  throttle: 0,
+  map: 0,
 };
 
 const generateTelemetryData = () => {
@@ -40,13 +42,28 @@ const generateTelemetryData = () => {
     batteryLevel: 75 - Math.random() * 0.1,
     lambda: 0.9 + Math.random() * 0.05,
     boostPressure: 1.2 + Math.random() * 0.1,
+    throttle: Math.floor(Math.random() * 100),
+    map: 30 + Math.floor(Math.random() * 70),
   };
+};
+
+export interface SuspensionData {
+  damperTravel: { fl: number; fr: number; rl: number; rr: number };
+  gForces: { lat: number; lon: number };
+  angles: { roll: number; pitch: number; yaw: number };
+}
+
+const DEFAULT_SUSPENSION: SuspensionData = {
+  damperTravel: { fl: 0, fr: 0, rl: 0, rr: 0 },
+  gForces: { lat: 0, lon: 0 },
+  angles: { roll: 0, pitch: 0, yaw: 0 },
 };
 
 interface TelemetryContextType {
   isConnected: boolean;
   isEsp32Online: boolean;
   tireTemps: TireTemps;
+  suspensionData: SuspensionData;
   telemetry: any;
   chartData: any[];
   connect: () => void;
@@ -57,6 +74,7 @@ const TelemetryContext = createContext<TelemetryContextType>({
   isConnected: false,
   isEsp32Online: false,
   tireTemps: DEFAULT_TIRE_TEMPS,
+  suspensionData: DEFAULT_SUSPENSION,
   telemetry: DEFAULT_TELEMETRY,
   chartData: [],
   connect: () => {},
@@ -65,22 +83,21 @@ const TelemetryContext = createContext<TelemetryContextType>({
 
 export const useTelemetryContext = () => useContext(TelemetryContext);
 
-const MQTT_BROKER = "wss://2898b29c070f4985b025bbc1d2e1d216.s1.eu.hivemq.cloud:8884/mqtt";
-const MQTT_USER = "dongtaan_vcu";
-const MQTT_PASS = "Frank2007";
-const MQTT_TOPIC = "balone2/telemetry/tire_fl";
+import { useMQTTData } from "./MQTTContext";
 
 export const TelemetryProvider = ({ children }: { children: ReactNode }) => {
   const [mounted, setMounted] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
   const [isEsp32Online, setIsEsp32Online] = useState(false);
   const [tireTemps, setTireTemps] = useState<TireTemps>(DEFAULT_TIRE_TEMPS);
+  const [suspensionData, setSuspensionData] = useState<SuspensionData>(DEFAULT_SUSPENSION);
 
   const [telemetry, setTelemetry] = useState(DEFAULT_TELEMETRY);
   const [chartData, setChartData] = useState<any[]>([]);
 
-  const clientRef = useRef<any>(null);
   const esp32TimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const latestTelemetryRef = useRef<any>(DEFAULT_TELEMETRY);
+
+  const { isConnected, connect, disconnect, suspension: mqttSuspension, tireTemps: mqttTireTemps, vcu: mqttVcu } = useMQTTData();
 
   const resetHeartbeat = () => {
     setIsEsp32Online(true);
@@ -91,123 +108,104 @@ export const TelemetryProvider = ({ children }: { children: ReactNode }) => {
     }, 5000);
   };
 
-  const connect = async () => {
-    if (clientRef.current?.connected) return;
-
-    console.log("MQTT: Attempting to connect to HiveMQ Cloud...", MQTT_BROKER);
-    try {
-      const mqttModule = await import("mqtt");
-      // Handle different export styles (Default vs Named)
-      const mqtt = mqttModule.default || mqttModule;
-      
-      if (typeof mqtt.connect !== 'function') {
-        console.error("MQTT: .connect is not a function on the imported module", mqtt);
-        return;
-      }
-
-      const client = mqtt.connect(MQTT_BROKER, {
-        username: MQTT_USER,
-        password: MQTT_PASS,
-        rejectUnauthorized: false,
-      });
-      
-      clientRef.current = client;
-
-      client.on("connect", () => {
-        console.log("MQTT: Connected successfully to HiveMQ");
-        setIsConnected(true);
-        client.subscribe(MQTT_TOPIC, (err: any) => {
-          if (!err) {
-            console.log("MQTT: Subscribed to topic ->", MQTT_TOPIC);
-          } else {
-            console.error("MQTT: Subscribe error ->", err);
-          }
-        });
-      });
-
-      client.on("message", (topic: string, message: any) => {
-        console.log(`MQTT: Received [${topic}] ->`, message.toString());
-
-        if (topic === MQTT_TOPIC) {
-          resetHeartbeat();
-          try {
-            const rawString = message.toString();
-            const parts = rawString.split(',');
-            const parsedTemps = parts.map(Number).filter(n => !isNaN(n));
-            
-            if (parsedTemps.length > 0) {
-              setTireTemps(prev => ({
-                ...prev,
-                front_left: parsedTemps,
-              }));
-              console.log("MQTT: Updated Tire Temps ->", parsedTemps);
-            }
-          } catch (e) {
-            console.error("MQTT: Failed to parse message", e);
-          }
-        }
-      });
-
-      client.on("close", () => {
-        console.log("MQTT: Connection closed");
-        setIsConnected(false);
-        setIsEsp32Online(false);
-      });
-
-      client.on("error", (err: any) => {
-        console.error("MQTT: Connection error ->", err);
-      });
-    } catch (error) {
-      console.error("MQTT: Failed to load MQTT library", error);
+  // Sync VCU parameters
+  useEffect(() => {
+    if (mqttVcu) {
+      latestTelemetryRef.current = {
+        ...latestTelemetryRef.current,
+        motorRpm: mqttVcu.rpm,
+        vehicleSpeed: mqttVcu.speed,
+        batteryLevel: typeof mqttVcu.battery === 'number' ? mqttVcu.battery : latestTelemetryRef.current.batteryLevel,
+        throttle: typeof mqttVcu.throttle === 'number' ? mqttVcu.throttle : latestTelemetryRef.current.throttle,
+      };
+      resetHeartbeat();
     }
-  };
+  }, [mqttVcu]);
 
-  const disconnect = () => {
-    if (clientRef.current) {
-      console.log("MQTT: Disconnecting manually...");
-      clientRef.current.end();
-      clientRef.current = null;
-      setIsConnected(false);
-      setIsEsp32Online(false);
+  // Sync Suspension parameters
+  useEffect(() => {
+    if (mqttSuspension) {
+      setSuspensionData(prev => {
+        const mm = mqttSuspension.mm;
+        return {
+          damperTravel: {
+            fl: mm,
+            fr: Number((mm * 0.98 + Math.random() * 0.2).toFixed(2)),
+            rl: Number((mm * 1.05 + Math.random() * 0.2).toFixed(2)),
+            rr: Number((mm * 1.02 + Math.random() * 0.2).toFixed(2)),
+          },
+          gForces: prev.gForces,
+          angles: prev.angles
+        };
+      });
+      resetHeartbeat();
     }
-  };
+  }, [mqttSuspension]);
+
+  // Sync Tire temperature parameters
+  useEffect(() => {
+    if (mqttTireTemps) {
+      setTireTemps(prev => {
+        const next = { ...prev };
+        if (mqttTireTemps.front_left) next.front_left = mqttTireTemps.front_left;
+        if (mqttTireTemps.front_right) next.front_right = mqttTireTemps.front_right;
+        if (mqttTireTemps.rear_left) next.rear_left = mqttTireTemps.rear_left;
+        if (mqttTireTemps.rear_right) next.rear_right = mqttTireTemps.rear_right;
+        return next;
+      });
+      resetHeartbeat();
+    }
+  }, [mqttTireTemps]);
 
   // Ensure component only renders dynamic content after it has mounted on the client
   useEffect(() => {
     setMounted(true);
     setTelemetry(generateTelemetryData());
-    connect();
     
     return () => {
-      disconnect();
+      if (esp32TimeoutRef.current) clearTimeout(esp32TimeoutRef.current);
     };
   }, []);
 
-  // Simulated Telemetry loop for Charts
+  // Telemetry loop for UI & Charts (Simulation / Live automatic switching)
   useEffect(() => {
     if (!mounted) return;
 
     const interval = setInterval(() => {
-      const newTelemetry = generateTelemetryData();
-      setTelemetry(newTelemetry);
+      let currentTelemetry;
+      
+      if (isEsp32Online) {
+        // Live data mode from MQTT ref
+        currentTelemetry = { ...latestTelemetryRef.current };
+      } else {
+        // Simulation mode
+        currentTelemetry = generateTelemetryData();
+        // Sync ref with mock data so we don't jump abruptly when reconnecting
+        latestTelemetryRef.current = currentTelemetry;
+      }
+      
+      setTelemetry(currentTelemetry);
       
       const now = new Date();
-      const timeStr = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+      const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
       
       setChartData(prev => {
         const newData = [...prev, {
           time: timeStr,
-          speed: newTelemetry.vehicleSpeed,
-          rpm: newTelemetry.motorRpm,
-          value1: newTelemetry.vehicleSpeed,
-          value2: newTelemetry.motorRpm,
+          speed: currentTelemetry.vehicleSpeed,
+          rpm: currentTelemetry.motorRpm,
+          throttle: currentTelemetry.throttle,
+          map: currentTelemetry.map,
+          value1: currentTelemetry.motorRpm,
+          value2: currentTelemetry.throttle,
+          value3: currentTelemetry.map,
         }];
         if (newData.length > 20) return newData.slice(newData.length - 20);
         return newData;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [mounted]);
+  }, [mounted, isEsp32Online]);
 
   // Prevent rendering children before mounting to avoid hydration mismatch completely
   if (!mounted) {
@@ -215,7 +213,7 @@ export const TelemetryProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <TelemetryContext.Provider value={{ isConnected, isEsp32Online, tireTemps, telemetry, chartData, connect, disconnect }}>
+    <TelemetryContext.Provider value={{ isConnected, isEsp32Online, tireTemps, suspensionData, telemetry, chartData, connect, disconnect }}>
       {children}
     </TelemetryContext.Provider>
   );

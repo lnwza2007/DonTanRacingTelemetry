@@ -7,6 +7,7 @@ import { LiveChart } from "./live-charts";
 import { VehicleStatsSidebar } from "./vehicle-stats-sidebar";
 import { AlertsLog, Alert } from "./alerts-log";
 import { ActionBar } from "./action-bar";
+import { useAuth } from "./AuthProvider";
 
 const initialAlerts: Alert[] = [
   {
@@ -24,6 +25,7 @@ const initialAlerts: Alert[] = [
 ];
 
 export default function OriginalTelemetryDashboard({ telemetry, chartData, isConnected, tireTemps, error, onConnect, onDisconnect }: any) {
+  const { vehicleType } = useAuth();
   const [drsEnabled, setDrsEnabled] = useState(false);
   const [lapNumber] = useState(7);
   const [lapTime] = useState("1:24.387");
@@ -62,27 +64,44 @@ export default function OriginalTelemetryDashboard({ telemetry, chartData, isCon
                   tireTemps={tireTemps}
                 />
              </div>
-             <div className="h-1/3 min-h-[200px] bg-[#18181b] border border-[#27272a] rounded-lg p-4">
-                <LiveChart 
-                  title="Speed & RPM"
-                  data={chartData || []}
-                  line1Label="Speed"
-                  line2Label="RPM"
-                  line1Color="#ef4444"
-                  line2Color="#3b82f6"
-                  unit1="km/h"
-                  unit2="rpm"
-                />
+             <div className="min-h-[320px] lg:h-2/5 bg-[#18181b] border border-[#27272a] rounded-lg p-2">
+                {vehicleType === "IC" ? (
+                  <div className="flex flex-col h-full gap-2">
+                     <div className="flex-1 min-h-0 bg-[#09090b] rounded border border-[#27272a] p-1 pt-2">
+                       <LiveChart title="" data={chartData?.map((d: any) => ({ ...d, value1: d.rpm })) || []} line1Label="RPM" line1Color="#ef4444" unit1=" rpm" />
+                     </div>
+                     <div className="flex-1 min-h-0 bg-[#09090b] rounded border border-[#27272a] p-1 pt-2">
+                       <LiveChart title="" data={chartData?.map((d: any) => ({ ...d, value1: d.throttle })) || []} line1Label="Throttle" line1Color="#3b82f6" unit1=" %" />
+                     </div>
+                     <div className="flex-1 min-h-0 bg-[#09090b] rounded border border-[#27272a] p-1 pt-2">
+                       <LiveChart title="" data={chartData?.map((d: any) => ({ ...d, value1: d.map })) || []} line1Label="MAP" line1Color="#10b981" unit1=" kPa" />
+                     </div>
+                  </div>
+                ) : (
+                  <LiveChart 
+                    title="EV Power System"
+                    data={chartData || []}
+                    line1Label="Speed"
+                    line2Label="RPM"
+                    line1Color="#3b82f6"
+                    line2Color="#8b5cf6"
+                    unit1=" km/h"
+                    unit2=" rpm"
+                  />
+                )}
              </div>
           </div>
 
           <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-3 lg:gap-4 h-full">
              <div className="flex-1 min-h-[300px] bg-[#18181b] border border-[#27272a] rounded-lg p-0">
                <VehicleStatsSidebar 
+                  vehicleType={vehicleType}
                   oilTemp={telemetry?.oilTemp || 0}
                   batteryLevel={telemetry?.batteryLevel || 0}
                   lambda={telemetry?.lambda || 0}
                   boostPressure={telemetry?.boostPressure || 0}
+                  motorTemp={telemetry?.motorTemp || 0}
+                  inverterTemp={telemetry?.inverterTemp || 0}
                   drsEnabled={drsEnabled}
                   onDrsToggle={() => setDrsEnabled(!drsEnabled)}
                />

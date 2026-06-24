@@ -10,6 +10,9 @@ interface VehicleStatsProps {
   boostPressure: number
   drsEnabled: boolean
   onDrsToggle?: () => void
+  vehicleType?: "EV" | "IC"
+  motorTemp?: number
+  inverterTemp?: number
 }
 
 function StatRow({

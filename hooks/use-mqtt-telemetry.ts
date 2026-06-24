@@ -38,7 +38,7 @@ const DEFAULT_TIRE_TEMPS: TireTemps = {
 const DEFAULT_CONFIG: MqttConfig = {
   brokerUrl: "wss://2898b29c070f4985b025bbc1d2e1d216.s1.eu.hivemq.cloud:8884/mqtt",
   username: "dongtaan_vcu",
-  password: "racing2026",
+  password: "Frank2007",
   topic: "balone2/telemetry/tire_fl",
 }
 

@@ -10,6 +10,8 @@ import {
   AreaChart,
 } from "recharts";
 import { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
+import { useAuth } from "./AuthProvider";
+import { LiveChart } from "./live-charts";
 
 // Helper to calculate SVG arc path
 const describeArc = (x: number, y: number, radius: number, startAngle: number, endAngle: number) => {
@@ -107,6 +109,7 @@ const TireHeatmap = ({ temps }: { temps: number[] }) => {
 export default function DashboardOverview({ telemetry, chartData, isConnected, tireTemps }: any) {
   const [width, setWidth] = useState(1200);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { vehicleType } = useAuth();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -124,30 +127,33 @@ export default function DashboardOverview({ telemetry, chartData, isConnected, t
   const currentSpeed = telemetry?.vehicleSpeed || 0;
   const currentRpm = telemetry?.motorRpm || 0;
 
-  // Real tire temps if available
-  const flTempsArray = tireTemps?.front_left || Array(16).fill(25);
+  // Real tire temps if available, with realistic derived mock data for the other wheels if not populated
+  const flTemps = tireTemps?.front_left || Array(16).fill(25);
+  const frTemps = tireTemps?.front_right || flTemps.map((t: number, i: number) => Number((t * 0.96 + Math.sin(i + 1) * 3).toFixed(1)));
+  const rlTemps = tireTemps?.rear_left || flTemps.map((t: number, i: number) => Number((t * 1.05 + Math.sin(i + 2) * 3).toFixed(1)));
+  const rrTemps = tireTemps?.rear_right || flTemps.map((t: number, i: number) => Number((t * 1.03 + Math.sin(i + 3) * 3).toFixed(1)));
 
   const layouts = {
     lg: [
       { i: 'speed', x: 0, y: 0, w: 4, h: 2 },
       { i: 'rpm', x: 4, y: 0, w: 4, h: 2 },
-      { i: 'wireframe', x: 8, y: 0, w: 4, h: 4 },
-      { i: 'chart', x: 0, y: 2, w: 8, h: 2 },
-      { i: 'heatmap', x: 0, y: 4, w: 12, h: 1 },
+      { i: 'wireframe', x: 8, y: 0, w: 4, h: 6 },
+      { i: 'chart', x: 0, y: 2, w: 8, h: 4 },
+      { i: 'heatmap', x: 0, y: 6, w: 12, h: 2 },
     ],
     md: [
       { i: 'speed', x: 0, y: 0, w: 6, h: 2 },
       { i: 'rpm', x: 6, y: 0, w: 6, h: 2 },
       { i: 'wireframe', x: 0, y: 2, w: 6, h: 4 },
-      { i: 'chart', x: 6, y: 2, w: 6, h: 2 },
-      { i: 'heatmap', x: 6, y: 4, w: 6, h: 2 },
+      { i: 'chart', x: 6, y: 2, w: 6, h: 4 },
+      { i: 'heatmap', x: 0, y: 6, w: 12, h: 2 },
     ],
     sm: [
       { i: 'speed', x: 0, y: 0, w: 12, h: 2 },
       { i: 'rpm', x: 0, y: 2, w: 12, h: 2 },
       { i: 'wireframe', x: 0, y: 4, w: 12, h: 4 },
-      { i: 'chart', x: 0, y: 8, w: 12, h: 2 },
-      { i: 'heatmap', x: 0, y: 10, w: 12, h: 2 },
+      { i: 'chart', x: 0, y: 8, w: 12, h: 4 },
+      { i: 'heatmap', x: 0, y: 12, w: 12, h: 2 },
     ]
   };
 
@@ -172,6 +178,7 @@ export default function DashboardOverview({ telemetry, chartData, isConnected, t
         cols={{ lg: 12, md: 12, sm: 12, xs: 12, xxs: 12 }}
         rowHeight={100}
         width={width}
+        // @ts-ignore
         isResizable={true}
         draggableHandle=".cursor-move"
       >
@@ -200,11 +207,26 @@ export default function DashboardOverview({ telemetry, chartData, isConnected, t
         {/* Tire Heatmap Widget */}
         <div key="heatmap" className="bg-[#18181b] border border-[#27272a] rounded-lg p-4 flex flex-col justify-between group">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-xs font-medium text-muted-foreground">FRONT-LEFT TIRE HEATMAP (16 Segments)</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase">Tire Thermal Heatmaps (FL / FR / RL / RR)</span>
             <GripVertical className="w-4 h-4 text-muted-foreground cursor-move opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
-          <div className="flex-1 min-h-0 p-2">
-            <TireHeatmap temps={flTempsArray} />
+          <div className="flex-1 grid grid-cols-4 gap-4 min-h-0 p-2 text-center font-mono">
+            <div className="flex flex-col justify-between h-full">
+              <span className="text-[10px] text-zinc-500 font-bold mb-1">FL</span>
+              <TireHeatmap temps={flTemps} />
+            </div>
+            <div className="flex flex-col justify-between h-full">
+              <span className="text-[10px] text-zinc-500 font-bold mb-1">FR</span>
+              <TireHeatmap temps={frTemps} />
+            </div>
+            <div className="flex flex-col justify-between h-full">
+              <span className="text-[10px] text-zinc-500 font-bold mb-1">RL</span>
+              <TireHeatmap temps={rlTemps} />
+            </div>
+            <div className="flex flex-col justify-between h-full">
+              <span className="text-[10px] text-zinc-500 font-bold mb-1">RR</span>
+              <TireHeatmap temps={rrTemps} />
+            </div>
           </div>
         </div>
 
@@ -230,31 +252,47 @@ export default function DashboardOverview({ telemetry, chartData, isConnected, t
         {/* Chart Widget */}
         <div key="chart" className="bg-[#18181b] border border-[#27272a] rounded-lg p-4 flex flex-col justify-between group">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-xs font-medium text-muted-foreground">SPEED & RPM HISTORY</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase">
+              {vehicleType === "IC" ? "TELEMETRY LOGS (IC)" : "SPEED & RPM HISTORY (EV)"}
+            </span>
             <GripVertical className="w-4 h-4 text-muted-foreground cursor-move opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
           <div className="flex-1 h-full min-h-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData || []}>
-                <defs>
-                  <linearGradient id="colorSpeed" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorRpm" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="time" hide />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
-                  labelStyle={{ color: '#a1a1aa' }}
-                />
-                <Area type="monotone" dataKey="speed" stroke="#3b82f6" fillOpacity={1} fill="url(#colorSpeed)" />
-                <Area type="monotone" dataKey="rpm" stroke="#22c55e" fillOpacity={1} fill="url(#colorRpm)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {vehicleType === "IC" ? (
+              <div className="flex flex-col h-full gap-2">
+                 <div className="flex-1 min-h-0 bg-[#09090b] rounded border border-[#27272a] p-1 pt-2">
+                   <LiveChart title="" data={chartData?.map((d: any) => ({ ...d, value1: d.rpm })) || []} line1Label="RPM" line1Color="#ef4444" unit1=" rpm" />
+                 </div>
+                 <div className="flex-1 min-h-0 bg-[#09090b] rounded border border-[#27272a] p-1 pt-2">
+                   <LiveChart title="" data={chartData?.map((d: any) => ({ ...d, value1: d.throttle })) || []} line1Label="Throttle" line1Color="#3b82f6" unit1=" %" />
+                 </div>
+                 <div className="flex-1 min-h-0 bg-[#09090b] rounded border border-[#27272a] p-1 pt-2">
+                   <LiveChart title="" data={chartData?.map((d: any) => ({ ...d, value1: d.map })) || []} line1Label="MAP" line1Color="#10b981" unit1=" kPa" />
+                 </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData || []}>
+                  <defs>
+                    <linearGradient id="colorSpeed" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorRpm" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="time" hide />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
+                    labelStyle={{ color: '#a1a1aa' }}
+                  />
+                  <Area type="monotone" dataKey="speed" stroke="#3b82f6" fillOpacity={1} fill="url(#colorSpeed)" />
+                  <Area type="monotone" dataKey="rpm" stroke="#22c55e" fillOpacity={1} fill="url(#colorRpm)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </ResponsiveGridLayout>

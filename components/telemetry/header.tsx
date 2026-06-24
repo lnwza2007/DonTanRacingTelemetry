@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { Activity, Clock, Radio } from "lucide-react"
+import { useAuth } from "./AuthProvider"
 
 interface HeaderProps {
   lapNumber: number
@@ -11,6 +12,8 @@ interface HeaderProps {
 }
 
 export function Header({ lapNumber, lapTime, sessionTime, isConnected }: HeaderProps) {
+  const { vehicleType, setVehicleType } = useAuth();
+
   return (
     <header className="bg-card/80 backdrop-blur-sm border-b border-border px-4 py-3">
       <div className="flex items-center justify-between">
@@ -51,6 +54,22 @@ export function Header({ lapNumber, lapTime, sessionTime, isConnected }: HeaderP
 
         {/* Connection Status */}
         <div className="flex items-center gap-2">
+          {/* IC / EV Toggle */}
+          <div className="flex bg-[#18181b] border border-[#27272a] rounded-full p-0.5 mr-2">
+            <button
+              onClick={() => setVehicleType("IC")}
+              className={cn("px-3 py-1 rounded-full text-[10px] font-bold transition-colors", vehicleType === "IC" ? "bg-red-500/20 text-red-500" : "text-muted-foreground")}
+            >
+              IC
+            </button>
+            <button
+              onClick={() => setVehicleType("EV")}
+              className={cn("px-3 py-1 rounded-full text-[10px] font-bold transition-colors", vehicleType === "EV" ? "bg-blue-500/20 text-blue-500" : "text-muted-foreground")}
+            >
+              EV
+            </button>
+          </div>
+
           <div className={cn(
             "flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium",
             isConnected 

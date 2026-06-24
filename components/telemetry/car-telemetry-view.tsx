@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { TireTempGrid } from "./tire-temp-grid"
 
@@ -65,7 +66,7 @@ function TireDataBlock({
   const alignClass = side === "left" ? "text-left items-start" : "text-right items-end"
 
   return (
-    <div className={cn("flex flex-col gap-2", alignClass)}>
+    <div className={cn("flex flex-col gap-2 relative", alignClass)}>
       {/* Tire Temperature Grid */}
       {temps && temps.length === 16 && (
         <div className={cn("mb-1", side === "right" && "flex justify-end")}>
@@ -105,6 +106,15 @@ function TireDataBlock({
 }
 
 export function CarTelemetryView({ vehicleSpeed, motorRpm, wheels, tireTemps }: CarTelemetryViewProps) {
+  // Add a blinking effect for FL tire when data updates
+  const [flFlashing, setFlFlashing] = useState(false);
+
+  useEffect(() => {
+    setFlFlashing(true);
+    const timer = setTimeout(() => setFlFlashing(false), 300);
+    return () => clearTimeout(timer);
+  }, [wheels.fl, tireTemps?.front_left]);
+
   return (
     <div className="flex flex-col items-center w-full h-full">
       {/* Speed Display */}
@@ -124,12 +134,17 @@ export function CarTelemetryView({ vehicleSpeed, motorRpm, wheels, tireTemps }: 
       <div className="flex items-stretch justify-between w-full flex-1 gap-2 md:gap-3 px-1">
         {/* Left column - FL and RL */}
         <div className="flex flex-col justify-between py-2 min-w-[110px] md:min-w-[130px]">
-          <TireDataBlock 
-            label="FL" 
-            data={wheels.fl} 
-            side="left" 
-            temps={tireTemps?.front_left}
-          />
+          <div className={cn("transition-opacity duration-150", flFlashing ? "opacity-100 drop-shadow-[0_0_10px_#22c55e]" : "opacity-90")}>
+            <TireDataBlock 
+              label="FL" 
+              data={wheels.fl} 
+              side="left" 
+              temps={tireTemps?.front_left}
+            />
+            {flFlashing && (
+              <span className="absolute -top-4 -left-2 text-[8px] font-mono text-green-500 animate-pulse uppercase font-bold tracking-widest bg-green-500/20 px-1 rounded">RX OK</span>
+            )}
+          </div>
           <TireDataBlock 
             label="RL" 
             data={wheels.rl} 
