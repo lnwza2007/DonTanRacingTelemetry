@@ -564,7 +564,7 @@ export default function TelemetrySimulatorView() {
               {/* Hostname info */}
               <div className="flex flex-col gap-1">
                 <span className="text-zinc-500 font-bold uppercase">CLUSTER ENDPOINT</span>
-                <span className="text-zinc-200 select-all truncate">2898b29c070f4985b025bbc1d2e1d216.s1.eu.hivemq.cloud</span>
+                <span className="text-zinc-200 select-all truncate">efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud</span>
               </div>
 
               <div className="border-t border-[#27272a]/40 my-1.5" />

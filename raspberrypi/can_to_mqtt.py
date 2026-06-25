@@ -20,10 +20,10 @@ except ImportError:
     sys.exit(1)
 
 # --- MQTT CONNECTION MODE ---
-USE_LOCAL_MOSQUITTO = True     # True = Local Mosquitto | False = HiveMQ Cloud
+USE_LOCAL_MOSQUITTO = False     # True = Local Mosquitto | False = HiveMQ Cloud
 
 # HiveMQ Cloud Configurations (TLS Encrypted)
-HIVEMQ_BROKER = "2898b29c070f4985b025bbc1d2e1d216.s1.eu.hivemq.cloud"
+HIVEMQ_BROKER = "efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud"
 HIVEMQ_PORT = 8883
 HIVEMQ_USER = "dongtaan_vcu"
 HIVEMQ_PASS = "Frank2007"

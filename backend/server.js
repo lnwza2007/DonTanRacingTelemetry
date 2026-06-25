@@ -17,7 +17,7 @@ const io = new Server(server, {
 });
 
 // Configuration
-const MQTT_BROKER = "wss://2898b29c070f4985b025bbc1d2e1d216.s1.eu.hivemq.cloud:8884/mqtt";
+const MQTT_BROKER = "wss://efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud:8884/mqtt";
 const MQTT_USER = "dongtaan_vcu";
 const MQTT_PASS = "Frank2007";
 const MQTT_TOPIC_TIRE = "balone2/telemetry/tire_fl";

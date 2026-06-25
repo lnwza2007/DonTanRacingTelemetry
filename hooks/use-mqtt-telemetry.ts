@@ -36,7 +36,7 @@ const DEFAULT_TIRE_TEMPS: TireTemps = {
 
 // Default HiveMQ Cloud configuration - Live Cluster
 const DEFAULT_CONFIG: MqttConfig = {
-  brokerUrl: "wss://2898b29c070f4985b025bbc1d2e1d216.s1.eu.hivemq.cloud:8884/mqtt",
+  brokerUrl: "wss://efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud:8884/mqtt",
   username: "dongtaan_vcu",
   password: "Frank2007",
   topic: "balone2/telemetry/tire_fl",

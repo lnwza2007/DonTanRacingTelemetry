@@ -1,11 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from "react";
 
 // Default Preset Configurations — DTR EV HiveMQ Cloud
-const DEFAULT_BROKER = "wss://46ec794bf19d4a839cad907d1c8cf0d9.s1.eu.hivemq.cloud:8884/mqtt";
-const DEFAULT_USER = "DTR_EV";
-const DEFAULT_PASS = "Dongtaan02";
+const DEFAULT_BROKER = "wss://efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud:8884/mqtt";
+const DEFAULT_USER = "dongtaan_vcu";
+const DEFAULT_PASS = "Frank2007";
 
 const TOPIC_VCU = "ev/telemetry";
 
@@ -121,19 +121,27 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
       let finalUser = DEFAULT_USER;
       let finalPass = DEFAULT_PASS;
 
-      if (savedBroker) { setBrokerUrl(savedBroker); finalBroker = savedBroker; }
-      if (savedUser !== null) { setUsername(savedUser); finalUser = savedUser; }
-      if (savedPass !== null) { setPassword(savedPass); finalPass = savedPass; }
+      const isOldBroker = savedBroker && (savedBroker.includes("2898b29c070f4985b025bbc1d2e1d216") || savedBroker.includes("46ec794bf19d4a839cad907d1c8cf0d9"));
+
+      if (savedBroker && !isOldBroker) { setBrokerUrl(savedBroker); finalBroker = savedBroker; }
+      if (savedUser !== null && !isOldBroker) { setUsername(savedUser); finalUser = savedUser; }
+      if (savedPass !== null && !isOldBroker) { setPassword(savedPass); finalPass = savedPass; }
 
       connectWithParams(finalBroker, finalUser, finalPass);
     }
   }, []);
 
-  const connectWithParams = async (url: string, user: string, pass: string) => {
+  const connectWithParams = useCallback(async (url: string, user: string, pass: string) => {
     console.log("[MQTT v2] connectWithParams() triggered.", { url, user });
 
-    if (clientRef.current?.connected) {
-      console.log("[MQTT v2] Already connected. Skipping.");
+    if (clientRef.current) {
+      if (clientRef.current.connected) {
+        console.log("[MQTT v2] Already connected. Skipping.");
+        setIsConnected(true);
+        setIsConnecting(false);
+        return;
+      }
+      console.log("[MQTT v2] Client already exists or is connecting. Skipping.");
       return;
     }
 
@@ -172,6 +180,9 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
         });
 
         // Also subscribe to legacy topics for backward compatibility
+        client.subscribe("balone2/telemetry/vcu", (err: any) => {
+          if (!err) console.log("[MQTT v2] Subscribed to: balone2/telemetry/vcu");
+        });
         client.subscribe("balone2/telemetry/suspension", (err: any) => {
           if (!err) console.log("[MQTT v2] Subscribed to: balone2/telemetry/suspension");
         });
@@ -183,17 +194,17 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
       client.on("message", (topic: string, message: any) => {
         const payload = message.toString();
 
-        if (topic === TOPIC_VCU) {
+        if (topic === TOPIC_VCU || topic === "balone2/telemetry/vcu") {
           try {
             const parsed = JSON.parse(payload);
             if (typeof parsed.rpm === "number") {
               latestVcuRef.current = {
                 rpm: parsed.rpm ?? 0,
                 speed: typeof parsed.speed === "number" ? parsed.speed : 0,
-                volt: typeof parsed.volt === "number" ? parsed.volt : 0,
-                curr: typeof parsed.curr === "number" ? parsed.curr : 0,
-                temp: typeof parsed.temp === "number" ? parsed.temp : 0,
-                soc: typeof parsed.soc === "number" ? parsed.soc : 0,
+                volt: typeof parsed.volt === "number" ? parsed.volt : (latestVcuRef.current?.volt ?? 0),
+                curr: typeof parsed.curr === "number" ? parsed.curr : (latestVcuRef.current?.curr ?? 0),
+                temp: typeof parsed.temp === "number" ? parsed.temp : (latestVcuRef.current?.temp ?? 0),
+                soc: typeof parsed.soc === "number" ? parsed.soc : (latestVcuRef.current?.soc ?? 0),
               };
               latestMessageCountRef.current.vcu += 1;
             }
@@ -204,16 +215,12 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
           try {
             const parsed = JSON.parse(payload);
             if (typeof parsed.mm === "number") {
-              const newFrame = {
-                mm: Number(parsed.mm.toFixed(2)),
-                volts: Number(parsed.volts?.toFixed(4) || 0),
-                timestamp: parsed.timestamp || Date.now(),
+              latestSuspensionRef.current = {
+                mm: parsed.mm,
+                volts: parsed.volts ?? 0,
+                timestamp: parsed.timestamp ?? Date.now(),
               };
-              latestSuspensionRef.current = newFrame;
               latestMessageCountRef.current.susp += 1;
-              const currentHistory = [...historyRef.current, newFrame];
-              if (currentHistory.length > 50) currentHistory.shift();
-              historyRef.current = currentHistory;
             }
           } catch (e) {
             console.error("[MQTT v2] Failed to parse suspension payload:", e);
@@ -263,18 +270,20 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
       setIsConnecting(false);
       setIsConnected(false);
     }
-  };
+  }, []);
 
-  const connect = () => connectWithParams(brokerUrl, username, password);
+  const connect = useCallback(() => {
+    connectWithParams(brokerUrl, username, password);
+  }, [connectWithParams, brokerUrl, username, password]);
 
-  const disconnect = () => {
+  const disconnect = useCallback(() => {
     setIsConnected(false);
     setIsConnecting(false);
     if (clientRef.current) {
       try { clientRef.current.end(true); } catch (e) { /* ignore */ }
       clientRef.current = null;
     }
-  };
+  }, []);
 
   const updateConfig = (url: string, user: string, pass: string) => {
     setBrokerUrl(url);
@@ -299,7 +308,7 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Throttle updates at 4Hz (250ms)
+  // Throttle updates at 10Hz (100ms)
   useEffect(() => {
     const throttleInterval = setInterval(() => {
       if (latestSuspensionRef.current) setSuspension(latestSuspensionRef.current);
@@ -311,7 +320,7 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
         tire: latestMessageCountRef.current.tire,
         vcu: latestMessageCountRef.current.vcu || 0,
       });
-    }, 250);
+    }, 100);
     return () => clearInterval(throttleInterval);
   }, []);
 

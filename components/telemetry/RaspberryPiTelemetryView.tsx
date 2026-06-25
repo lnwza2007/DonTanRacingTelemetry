@@ -296,7 +296,7 @@ export default function RaspberryPiTelemetryView() {
                 <button
                   type="button"
                   onClick={() => {
-                    setInputUrl("wss://2898b29c070f4985b025bbc1d2e1d216.s1.eu.hivemq.cloud:8884/mqtt");
+                    setInputUrl("wss://efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud:8884/mqtt");
                     setInputUser("dongtaan_vcu");
                     setInputPass("Frank2007");
                   }}

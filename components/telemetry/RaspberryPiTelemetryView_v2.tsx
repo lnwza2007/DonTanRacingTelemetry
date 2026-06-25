@@ -358,9 +358,9 @@ export default function RaspberryPiTelemetryView_v2() {
                 <button
                   type="button"
                   onClick={() => {
-                    setInputUrl("wss://46ec794bf19d4a839cad907d1c8cf0d9.s1.eu.hivemq.cloud:8884/mqtt");
-                    setInputUser("DTR_EV");
-                    setInputPass("Dongtaan02");
+                    setInputUrl("wss://efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud:8884/mqtt");
+                    setInputUser("dongtaan_vcu");
+                    setInputPass("Frank2007");
                   }}
                   className="px-2 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-emerald-300 font-bold border border-emerald-500/10 hover:border-emerald-500/30 transition-all flex-1"
                 >
@@ -369,7 +369,7 @@ export default function RaspberryPiTelemetryView_v2() {
                 <button
                   type="button"
                   onClick={() => {
-                    setInputUrl("wss://2898b29c070f4985b025bbc1d2e1d216.s1.eu.hivemq.cloud:8884/mqtt");
+                    setInputUrl("wss://efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud:8884/mqtt");
                     setInputUser("dongtaan_vcu");
                     setInputPass("Frank2007");
                   }}

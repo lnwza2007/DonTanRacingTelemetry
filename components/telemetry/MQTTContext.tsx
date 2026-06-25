@@ -1,9 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from "react";
 
 // Default Preset Configurations (HiveMQ Cloud - for public access via Vercel)
-const DEFAULT_BROKER = "wss://2898b29c070f4985b025bbc1d2e1d216.s1.eu.hivemq.cloud:8884/mqtt";
+const DEFAULT_BROKER = "wss://efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud:8884/mqtt";
 const DEFAULT_USER = "dongtaan_vcu";
 const DEFAULT_PASS = "Frank2007";
 
@@ -114,15 +114,17 @@ export const MQTTProvider = ({ children }: { children: ReactNode }) => {
       let finalUser = DEFAULT_USER;
       let finalPass = DEFAULT_PASS;
 
-      if (savedBroker) {
+      const isOldBroker = savedBroker && (savedBroker.includes("2898b29c070f4985b025bbc1d2e1d216") || savedBroker.includes("46ec794bf19d4a839cad907d1c8cf0d9"));
+
+      if (savedBroker && !isOldBroker) {
         setBrokerUrl(savedBroker);
         finalBroker = savedBroker;
       }
-      if (savedUser !== null) {
+      if (savedUser !== null && !isOldBroker) {
         setUsername(savedUser);
         finalUser = savedUser;
       }
-      if (savedPass !== null) {
+      if (savedPass !== null && !isOldBroker) {
         setPassword(savedPass);
         finalPass = savedPass;
       }
@@ -132,18 +134,22 @@ export const MQTTProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const connectWithParams = async (url: string, user: string, pass: string) => {
+  const connectWithParams = useCallback(async (url: string, user: string, pass: string) => {
     console.log("[MQTT Context] connectWithParams() triggered.", {
       url,
       user,
-      isConnected,
-      isConnecting,
       hasClient: !!clientRef.current,
       clientConnected: clientRef.current?.connected
     });
 
-    if (clientRef.current?.connected) {
-      console.log("[MQTT Context] Already connected. Skipping connect call.");
+    if (clientRef.current) {
+      if (clientRef.current.connected) {
+        console.log("[MQTT Context] Already connected. Skipping connect call.");
+        setIsConnected(true);
+        setIsConnecting(false);
+        return;
+      }
+      console.log("[MQTT Context] Client already exists or is connecting. Skipping connect call.");
       return;
     }
 
@@ -236,7 +242,7 @@ export const MQTTProvider = ({ children }: { children: ReactNode }) => {
                 else if (wheelKey === "rl") updatedTemps.rear_left = parsedArray;
                 else if (wheelKey === "rr") updatedTemps.rear_right = parsedArray;
               }
-
+  
               latestTireTempsRef.current = updatedTemps;
               latestMessageCountRef.current.tire += 1;
             }
@@ -280,16 +286,14 @@ export const MQTTProvider = ({ children }: { children: ReactNode }) => {
       setIsConnecting(false);
       setIsConnected(false);
     }
-  };
+  }, []);
 
-  const connect = () => {
+  const connect = useCallback(() => {
     connectWithParams(brokerUrl, username, password);
-  };
+  }, [connectWithParams, brokerUrl, username, password]);
 
-  const disconnect = () => {
+  const disconnect = useCallback(() => {
     console.log("[MQTT Context] disconnect() triggered.", {
-      isConnected,
-      isConnecting,
       hasClient: !!clientRef.current
     });
 
@@ -305,7 +309,7 @@ export const MQTTProvider = ({ children }: { children: ReactNode }) => {
       }
       clientRef.current = null;
     }
-  };
+  }, []);
 
   const updateConfig = (url: string, user: string, pass: string) => {
     console.log("[MQTT Context] Configuration updated:", { url, user });

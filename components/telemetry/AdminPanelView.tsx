@@ -9,7 +9,7 @@ export default function AdminPanelView() {
   const [zeroOffset, setZeroOffset] = useState("0.12");
   const [gain, setGain] = useState("1.0");
   const [tempThreshold, setTempThreshold] = useState(80);
-  const [mqttUrl, setMqttUrl] = useState("wss://2898b29c070f4985b025bbc1d2e1d216.s1.eu.hivemq.cloud:8884/mqtt");
+  const [mqttUrl, setMqttUrl] = useState("wss://efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud:8884/mqtt");
   const [mqttUser, setMqttUser] = useState("dongtaan_vcu");
   const [mqttPass, setMqttPass] = useState("Frank2007");
 
