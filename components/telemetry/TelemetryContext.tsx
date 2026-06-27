@@ -88,6 +88,22 @@ import { useMQTTData } from "./MQTTContext";
 export const TelemetryProvider = ({ children }: { children: ReactNode }) => {
   const [mounted, setMounted] = useState(false);
   const [isEsp32Online, setIsEsp32Online] = useState(false);
+  const [isDemoLocked, setIsDemoLocked] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dtr_lock_demo") !== "false";
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const locked = localStorage.getItem("dtr_lock_demo") !== "false";
+      setIsDemoLocked(locked);
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
   const [tireTemps, setTireTemps] = useState<TireTemps>(DEFAULT_TIRE_TEMPS);
   const [suspensionData, setSuspensionData] = useState<SuspensionData>(DEFAULT_SUSPENSION);
 
@@ -160,12 +176,12 @@ export const TelemetryProvider = ({ children }: { children: ReactNode }) => {
   // Ensure component only renders dynamic content after it has mounted on the client
   useEffect(() => {
     setMounted(true);
-    setTelemetry(generateTelemetryData());
+    setTelemetry(isDemoLocked ? DEFAULT_TELEMETRY : generateTelemetryData());
     
     return () => {
       if (esp32TimeoutRef.current) clearTimeout(esp32TimeoutRef.current);
     };
-  }, []);
+  }, [isDemoLocked]);
 
   // Telemetry loop for UI & Charts (Simulation / Live automatic switching)
   useEffect(() => {
@@ -179,7 +195,7 @@ export const TelemetryProvider = ({ children }: { children: ReactNode }) => {
         currentTelemetry = { ...latestTelemetryRef.current };
       } else {
         // Simulation mode
-        currentTelemetry = generateTelemetryData();
+        currentTelemetry = isDemoLocked ? DEFAULT_TELEMETRY : generateTelemetryData();
         // Sync ref with mock data so we don't jump abruptly when reconnecting
         latestTelemetryRef.current = currentTelemetry;
       }
@@ -205,7 +221,7 @@ export const TelemetryProvider = ({ children }: { children: ReactNode }) => {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [mounted, isEsp32Online]);
+  }, [mounted, isEsp32Online, isDemoLocked]);
 
   // Prevent rendering children before mounting to avoid hydration mismatch completely
   if (!mounted) {

@@ -26,6 +26,60 @@ export default function RaspberryPiTelemetryView_v2() {
   const [piLastHeartbeat, setPiLastHeartbeat] = useState<string>("-");
   const piTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Peak holds tracking
+  const [maxRpm, setMaxRpm] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("dtr_pi_history_v2");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const rpms = parsed.map((d: any) => d.rpm).filter((r: any) => typeof r === 'number');
+            return Math.max(5000, ...rpms);
+          }
+        } catch (e) {}
+      }
+    }
+    return 5000;
+  });
+  const [maxSpeed, setMaxSpeed] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("dtr_pi_history_v2");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const speeds = parsed.map((d: any) => d.speed).filter((s: any) => typeof s === 'number');
+            return Math.max(100, ...speeds);
+          }
+        } catch (e) {}
+      }
+    }
+    return 100;
+  });
+
+  const [maxPower, setMaxPower] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("dtr_pi_history_v2");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const powers = parsed.map((d: any) => d.power).filter((s: any) => typeof s === 'number');
+            return Math.max(10, ...powers);
+          }
+        } catch (e) {}
+      }
+    }
+    return 10;
+  });
+
+  const handleResetMax = () => {
+    setMaxRpm(5000);
+    setMaxSpeed(100);
+    setMaxPower(10);
+  };
+
   // Connection settings input states
   const [inputUrl, setInputUrl] = useState(brokerUrl);
   const [inputUser, setInputUser] = useState(username);
@@ -50,7 +104,19 @@ export default function RaspberryPiTelemetryView_v2() {
     speed: number;
     volt: number;
     curr: number;
-  }>>([]);
+  }>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("dtr_pi_history_v2");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          return [];
+        }
+      }
+    }
+    return [];
+  });
 
   // Live incoming logs
   const [rawLogs, setRawLogs] = useState<Array<{
@@ -87,9 +153,17 @@ export default function RaspberryPiTelemetryView_v2() {
           volt: vcu.volt,
           curr: vcu.curr,
         }];
-        if (next.length > 30) return next.slice(next.length - 30);
-        return next;
+        const trimmed = next.length > 30 ? next.slice(next.length - 30) : next;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("dtr_pi_history_v2", JSON.stringify(trimmed));
+        }
+        return trimmed;
       });
+
+      // Dynamic peak holds
+      if (typeof vcu.rpm === "number") setMaxRpm(prev => Math.max(prev, vcu.rpm));
+      if (typeof vcu.speed === "number") setMaxSpeed(prev => Math.max(prev, vcu.speed));
+      if (typeof vcu.power_kw === "number") setMaxPower(prev => Math.max(prev, vcu.power_kw));
 
       // Clear existing timeout
       if (piTimeoutRef.current) clearTimeout(piTimeoutRef.current);
@@ -160,6 +234,12 @@ export default function RaspberryPiTelemetryView_v2() {
 
             {/* Speed Gauge */}
             <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5 flex flex-col items-center justify-between min-h-[260px] relative overflow-hidden">
+              {/* Peak Max Indicator */}
+              <div className="absolute top-4 right-4 text-right z-10">
+                <span className="text-[8px] font-mono text-zinc-500 uppercase tracking-widest block font-bold">PEAK MAX</span>
+                <span className="text-sm font-bold font-mono text-cyan-400">{Math.round(maxSpeed)} KM/H</span>
+              </div>
+
               <div className="w-full text-left z-10">
                 <span className="text-[10px] font-mono text-cyan-400 font-bold block uppercase tracking-wider">VEHICLE SPEED</span>
                 <span className="text-xs text-zinc-500 font-mono">Computed from RPM × gear ratio × wheel</span>
@@ -179,6 +259,12 @@ export default function RaspberryPiTelemetryView_v2() {
 
             {/* RPM Gauge */}
             <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5 flex flex-col items-center justify-between min-h-[260px] relative overflow-hidden">
+              {/* Peak Max Indicator */}
+              <div className="absolute top-4 right-4 text-right z-10">
+                <span className="text-[8px] font-mono text-zinc-500 uppercase tracking-widest block font-bold">PEAK MAX</span>
+                <span className="text-sm font-bold font-mono text-[#a78bfa]">{Math.round(maxRpm)} RPM</span>
+              </div>
+
               <div className="w-full text-left z-10">
                 <span className="text-[10px] font-mono text-[#a78bfa] font-bold block uppercase tracking-wider">MOTOR SPEED</span>
                 <span className="text-xs text-zinc-500 font-mono">Decoded from CAN 0x181 RegID 0x30</span>
@@ -227,12 +313,22 @@ export default function RaspberryPiTelemetryView_v2() {
             {/* Temperature */}
             <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-4 flex flex-col items-center gap-2 relative overflow-hidden">
               <div className="flex items-center gap-1.5 text-[10px] font-mono text-rose-400 font-bold uppercase tracking-wider">
-                <Thermometer className="w-3.5 h-3.5" /> MOTOR TEMP
+                <Thermometer className="w-3.5 h-3.5" /> TEMPERATURES
               </div>
-              <span className={`text-3xl font-black font-mono ${vcu && isPiOnline && vcu.temp > 80 ? 'text-rose-400 animate-pulse' : 'text-rose-300'}`}>
-                {vcu && isPiOnline ? vcu.temp.toFixed(1) : "0.0"}
-              </span>
-              <span className="text-[10px] text-zinc-500 font-bold">°C</span>
+              <div className="flex w-full justify-around mt-1">
+                <div className="flex flex-col items-center">
+                  <span className={`text-2xl font-black font-mono ${vcu && isPiOnline && vcu.temp > 80 ? 'text-rose-400 animate-pulse' : 'text-rose-300'}`}>
+                    {vcu && isPiOnline ? vcu.temp.toFixed(1) : "0.0"}
+                  </span>
+                  <span className="text-[9px] text-zinc-500 font-bold">MOTOR °C</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className={`text-2xl font-black font-mono ${vcu && isPiOnline && (vcu.temp_inv || 0) > 80 ? 'text-rose-400 animate-pulse' : 'text-rose-300'}`}>
+                    {vcu && isPiOnline && vcu.temp_inv !== undefined ? vcu.temp_inv.toFixed(1) : "0.0"}
+                  </span>
+                  <span className="text-[9px] text-zinc-500 font-bold">INV °C</span>
+                </div>
+              </div>
               <div className="absolute -bottom-12 -left-12 w-28 h-28 rounded-full bg-rose-500/5 blur-[30px] pointer-events-none" />
             </div>
 
@@ -256,14 +352,85 @@ export default function RaspberryPiTelemetryView_v2() {
             </div>
           </div>
 
+          {/* Row 2.5: Advanced Motor Data */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Vout */}
+            <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-4 flex flex-col items-center gap-2 relative overflow-hidden">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono text-purple-400 font-bold uppercase tracking-wider">
+                <Zap className="w-3.5 h-3.5" /> VOUT
+              </div>
+              <span className="text-3xl font-black font-mono text-purple-300">
+                {vcu && isPiOnline && vcu.vout !== undefined ? vcu.vout.toFixed(1) : "0.0"}
+              </span>
+              <span className="text-[10px] text-zinc-500 font-bold">VOLTS</span>
+              <div className="absolute -bottom-12 -left-12 w-28 h-28 rounded-full bg-purple-500/5 blur-[30px] pointer-events-none" />
+            </div>
+            {/* Iq */}
+            <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-4 flex flex-col items-center gap-2 relative overflow-hidden">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono text-indigo-400 font-bold uppercase tracking-wider">
+                <Activity className="w-3.5 h-3.5" /> IQ (TORQUE)
+              </div>
+              <span className="text-3xl font-black font-mono text-indigo-300">
+                {vcu && isPiOnline && vcu.iq !== undefined ? vcu.iq.toFixed(1) : "0.0"}
+              </span>
+              <span className="text-[10px] text-zinc-500 font-bold">AMPS</span>
+              <div className="absolute -bottom-12 -left-12 w-28 h-28 rounded-full bg-indigo-500/5 blur-[30px] pointer-events-none" />
+            </div>
+            {/* Id */}
+            <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-4 flex flex-col items-center gap-2 relative overflow-hidden">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-wider">
+                <Activity className="w-3.5 h-3.5" /> ID (FLUX)
+              </div>
+              <span className="text-3xl font-black font-mono text-cyan-300">
+                {vcu && isPiOnline && vcu.id !== undefined ? vcu.id.toFixed(1) : "0.0"}
+              </span>
+              <span className="text-[10px] text-zinc-500 font-bold">AMPS</span>
+              <div className="absolute -bottom-12 -left-12 w-28 h-28 rounded-full bg-cyan-500/5 blur-[30px] pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Row 2.6: Battery Consumption */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Battery Power */}
+            <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-4 flex flex-col items-center gap-2 relative overflow-hidden">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono text-green-400 font-bold uppercase tracking-wider">
+                <Zap className="w-3.5 h-3.5" /> DC POWER
+              </div>
+              <span className="text-3xl font-black font-mono text-green-300">
+                {vcu && isPiOnline && vcu.power_kw !== undefined ? vcu.power_kw.toFixed(2) : "0.00"}
+              </span>
+              <span className="text-[10px] text-zinc-500 font-bold">kW</span>
+              <div className="absolute -bottom-12 -left-12 w-28 h-28 rounded-full bg-green-500/5 blur-[30px] pointer-events-none" />
+            </div>
+            {/* Battery Current */}
+            <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-4 flex flex-col items-center gap-2 relative overflow-hidden">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono text-yellow-400 font-bold uppercase tracking-wider">
+                <Activity className="w-3.5 h-3.5" /> DC CURRENT
+              </div>
+              <span className="text-3xl font-black font-mono text-yellow-300">
+                {vcu && isPiOnline && vcu.idc !== undefined ? vcu.idc.toFixed(1) : "0.0"}
+              </span>
+              <span className="text-[10px] text-zinc-500 font-bold">AMPS</span>
+              <div className="absolute -bottom-12 -left-12 w-28 h-28 rounded-full bg-yellow-500/5 blur-[30px] pointer-events-none" />
+            </div>
+          </div>
+
           {/* Row 3: Real-time telemetry charts */}
           <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5 flex flex-col gap-4">
-            <div>
-              <h2 className="text-sm font-semibold tracking-wide text-white flex items-center gap-1.5">
-                <Activity className="w-4 h-4 text-purple-400" />
-                PI DATA STREAM HISTORY
-              </h2>
-              <p className="text-xs text-zinc-500">Live charts from <code className="text-purple-300">ev/telemetry</code> topic</p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-sm font-semibold tracking-wide text-white flex items-center gap-1.5">
+                  <Activity className="w-4 h-4 text-purple-400" />
+                  PI DATA STREAM HISTORY
+                </h2>
+                <p className="text-xs text-zinc-500">Live charts from <code className="text-purple-300">ev/telemetry</code> topic</p>
+              </div>
+              <button
+                onClick={handleResetMax}
+                className="px-2.5 py-1 rounded bg-[#27272a] hover:bg-[#3f3f46] text-xs font-mono text-zinc-300 hover:text-white border border-zinc-700 transition-all active:scale-95 shrink-0"
+              >
+                Reset Peaks
+              </button>
             </div>
 
             {history.length === 0 ? (
@@ -271,34 +438,78 @@ export default function RaspberryPiTelemetryView_v2() {
                 Awaiting incoming CAN packets...
               </div>
             ) : (
-              <div className="h-[220px] w-full bg-black/20 rounded-lg p-2">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={history}>
-                    <defs>
-                      <linearGradient id="piRpmGlowV2" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#a78bfa" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="piSpeedGlowV2" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="piVoltGlowV2" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#fbbf24" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="time" stroke="#52525b" fontSize={9} fontStyle="italic" />
-                    <YAxis stroke="#52525b" fontSize={9} className="font-mono" />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a" }}
-                      labelStyle={{ color: "#a1a1aa" }}
-                    />
-                    <Area type="monotone" name="Motor RPM" dataKey="rpm" stroke="#a78bfa" strokeWidth={2} fillOpacity={1} fill="url(#piRpmGlowV2)" />
-                    <Area type="monotone" name="Speed km/h" dataKey="speed" stroke="#22d3ee" strokeWidth={1.5} fillOpacity={1} fill="url(#piSpeedGlowV2)" />
-                    <Area type="monotone" name="Voltage" dataKey="volt" stroke="#fbbf24" strokeWidth={1} fillOpacity={1} fill="url(#piVoltGlowV2)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div className="flex flex-col gap-4 w-full">
+                {/* Motor RPM Chart */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-mono text-[#a78bfa] font-bold uppercase tracking-wider">Motor RPM History</span>
+                  <div className="h-[140px] w-full bg-black/20 rounded-lg p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={history}>
+                        <defs>
+                          <linearGradient id="piRpmGlowV2" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#a78bfa" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="time" stroke="#52525b" fontSize={9} fontStyle="italic" />
+                        <YAxis stroke="#52525b" fontSize={9} className="font-mono" domain={[0, Math.max(5000, maxRpm)]} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a" }}
+                          labelStyle={{ color: "#a1a1aa" }}
+                        />
+                        <Area type="monotone" name="Motor RPM" dataKey="rpm" stroke="#a78bfa" strokeWidth={2} fillOpacity={1} fill="url(#piRpmGlowV2)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Speed Chart */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-wider">Vehicle Speed History</span>
+                  <div className="h-[140px] w-full bg-black/20 rounded-lg p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={history}>
+                        <defs>
+                          <linearGradient id="piSpeedGlowV2" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.2}/>
+                            <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="time" stroke="#52525b" fontSize={9} fontStyle="italic" />
+                        <YAxis stroke="#52525b" fontSize={9} className="font-mono" domain={[0, Math.max(100, maxSpeed)]} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a" }}
+                          labelStyle={{ color: "#a1a1aa" }}
+                        />
+                        <Area type="monotone" name="Speed km/h" dataKey="speed" stroke="#22d3ee" strokeWidth={1.5} fillOpacity={1} fill="url(#piSpeedGlowV2)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Power Chart */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-mono text-green-400 font-bold uppercase tracking-wider">Battery Power (kW) History</span>
+                  <div className="h-[140px] w-full bg-black/20 rounded-lg p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={history}>
+                        <defs>
+                          <linearGradient id="piPowerGlowV2" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#4ade80" stopOpacity={0.2}/>
+                            <stop offset="95%" stopColor="#4ade80" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="time" stroke="#52525b" fontSize={9} fontStyle="italic" />
+                        <YAxis stroke="#52525b" fontSize={9} className="font-mono" domain={[0, Math.max(10, maxPower)]} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a" }}
+                          labelStyle={{ color: "#a1a1aa" }}
+                        />
+                        <Area type="monotone" name="Power kW" dataKey="power" stroke="#4ade80" strokeWidth={1.5} fillOpacity={1} fill="url(#piPowerGlowV2)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
               </div>
             )}
           </div>

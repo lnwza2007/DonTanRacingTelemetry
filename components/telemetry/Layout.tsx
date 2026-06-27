@@ -48,6 +48,13 @@ export function Layout({ children, activeTab, setActiveTab, userRole, onLogout }
   const { isConnected, isConnecting, connect: connectMqtt, disconnect: handleDisconnect } = useMQTTData();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const [isDemoLocked, setIsDemoLocked] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dtr_lock_demo") !== "false";
+    }
+    return true;
+  });
+
   // Persistent Collapsible Sidebar state (Requirement)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
@@ -341,6 +348,28 @@ export function Layout({ children, activeTab, setActiveTab, userRole, onLogout }
                 EV MODE
               </button>
             </div>
+
+            {/* Lock Demo Data Toggle */}
+            <button
+              onClick={() => {
+                const nextState = !isDemoLocked;
+                setIsDemoLocked(nextState);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("dtr_lock_demo", String(nextState));
+                  window.dispatchEvent(new Event("storage"));
+                }
+              }}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono text-[9px] font-extrabold uppercase tracking-wider transition-all duration-300 shadow-md border active:scale-95",
+                isDemoLocked
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.15)]"
+                  : "bg-zinc-800/40 text-zinc-500 border-zinc-700 hover:bg-zinc-800"
+              )}
+              title={isDemoLocked ? "Demo data is locked (static)" : "Demo data is running (fluctuating)"}
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>DEMO: {isDemoLocked ? "LOCKED" : "LIVE"}</span>
+            </button>
 
             {/* Highly interactive premium Cloud Connect toggle button visible on all pages */}
             <button

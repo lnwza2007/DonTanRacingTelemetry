@@ -63,6 +63,22 @@ const initialLayouts = {
 export default function DriverInterfaceView() {
   const { isConnected, suspension, tireTemps, vcu } = useMQTTData();
 
+  const [isDemoLocked, setIsDemoLocked] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dtr_lock_demo") !== "false";
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const locked = localStorage.getItem("dtr_lock_demo") !== "false";
+      setIsDemoLocked(locked);
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
   // Internal simulated states for dynamic mock telemetry updating at 10Hz
   const [speed, setSpeed] = useState(47);
   const [rpm, setRpm] = useState(1986);
@@ -222,7 +238,7 @@ export default function DriverInterfaceView() {
         if (typeof vcu.speed === 'number') setSpeed(vcu.speed);
         if (typeof vcu.rpm === 'number') setRpm(vcu.rpm);
         if (typeof vcu.throttle === 'number') setGasPedal(vcu.throttle);
-      } else {
+      } else if (!isDemoLocked) {
         // Speeds vary between 44 and 96
         setSpeed((prev) => {
           const delta = Math.floor(Math.random() * 5) - 2;
@@ -235,60 +251,77 @@ export default function DriverInterfaceView() {
           const targetRpm = 1000 + Math.floor(Math.random() * 500);
           return targetRpm;
         });
+      } else {
+        // If locked and offline, reset to static defaults
+        setSpeed(0);
+        setRpm(0);
       }
 
-      // Simple gear logic
-      setGear((prev) => {
-        if (Math.random() > 0.95) {
-          const gears = ["P1", "1", "2", "3", "4", "5", "N"];
-          return gears[Math.floor(Math.random() * gears.length)];
-        }
-        return prev;
-      });
+      if (isConnected && vcu) {
+        // Connected mode overrides
+      } else if (!isDemoLocked) {
+        // Simple gear logic
+        setGear((prev) => {
+          if (Math.random() > 0.95) {
+            const gears = ["P1", "1", "2", "3", "4", "5", "N"];
+            return gears[Math.floor(Math.random() * gears.length)];
+          }
+          return prev;
+        });
 
-      // Steer angle weave
-      setSteeringAngle((prev) => {
-        const weaving = Math.sin(Date.now() / 1500) * 12;
-        return Math.floor(weaving);
-      });
+        // Steer angle weave
+        setSteeringAngle((prev) => {
+          const weaving = Math.sin(Date.now() / 1500) * 12;
+          return Math.floor(weaving);
+        });
 
-      // Gas and brake pedals
-      setGasPedal((prev) => {
-        const target = Math.sin(Date.now() / 1200) > 0 ? 85 : 12;
-        return target + Math.floor(Math.random() * 5);
-      });
+        // Gas and brake pedals
+        setGasPedal((prev) => {
+          const target = Math.sin(Date.now() / 1200) > 0 ? 85 : 12;
+          return target + Math.floor(Math.random() * 5);
+        });
 
-      setBrkPedal((prev) => {
-        const target = Math.sin(Date.now() / 1200) <= 0 ? 45 : 0;
-        return target + Math.floor(Math.random() * 3);
-      });
+        setBrkPedal((prev) => {
+          const target = Math.sin(Date.now() / 1200) <= 0 ? 45 : 0;
+          return target + Math.floor(Math.random() * 3);
+        });
 
-      // DRS auto toggle based on speed
-      setDrsStatus((prev) => {
-        if (speed > 75) return "OPEN";
-        return "CLOSED";
-      });
+        // DRS auto toggle based on speed
+        setDrsStatus((prev) => {
+          if (speed > 75) return "OPEN";
+          return "CLOSED";
+        });
 
-      // Slow battery State of Charge depletion
-      setBatterySoC((prev) => {
-        const next = prev - 0.01;
-        if (next <= 5) return 99.8;
-        return Number(next.toFixed(2));
-      });
+        // Slow battery State of Charge depletion
+        setBatterySoC((prev) => {
+          const next = prev - 0.01;
+          if (next <= 5) return 99.8;
+          return Number(next.toFixed(2));
+        });
 
-      // Simple drive mode selector cycle
-      setDriveMode((prev) => {
-        if (Math.random() > 0.98) {
-          const modes: Array<"D" | "N" | "R" | "TV"> = ["D", "N", "R", "TV"];
-          return modes[Math.floor(Math.random() * modes.length)];
-        }
-        return prev;
-      });
+        // Simple drive mode selector cycle
+        setDriveMode((prev) => {
+          if (Math.random() > 0.98) {
+            const modes: Array<"D" | "N" | "R" | "TV"> = ["D", "N", "R", "TV"];
+            return modes[Math.floor(Math.random() * modes.length)];
+          }
+          return prev;
+        });
+      } else {
+        // Locked and offline defaults
+        setGear("N");
+        setSteeringAngle(0);
+        setGasPedal(0);
+        setBrkPedal(0);
+        setDrsStatus("CLOSED");
+        setBatterySoC(100);
+        setDriveMode("N");
+      }
 
     }, 200);
 
     return () => clearInterval(interval);
-  }, [speed, isConnected, vcu]);
+  }, [speed, isConnected, vcu, isDemoLocked]);
 
   // Lap time counter
   useEffect(() => {

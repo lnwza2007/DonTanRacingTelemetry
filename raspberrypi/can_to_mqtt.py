@@ -20,7 +20,7 @@ except ImportError:
     sys.exit(1)
 
 # --- MQTT CONNECTION MODE ---
-USE_LOCAL_MOSQUITTO = False     # True = Local Mosquitto | False = HiveMQ Cloud
+USE_LOCAL_MOSQUITTO = True     # True = Local Mosquitto | False = HiveMQ Cloud
 
 # HiveMQ Cloud Configurations (TLS Encrypted)
 HIVEMQ_BROKER = "efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud"
@@ -29,7 +29,7 @@ HIVEMQ_USER = "dongtaan_vcu"
 HIVEMQ_PASS = "Frank2007"
 
 # Local Mosquitto Configurations (Unencrypted, no auth)
-MOSQUITTO_BROKER = "172.20.10.2" # IP ของ Raspberry Pi บน Hotspot
+MOSQUITTO_BROKER = "172.20.10.3" # IP ของ Raspberry Pi บน Hotspot
 MOSQUITTO_PORT = 1883            # Standard MQTT port
 MOSQUITTO_USER = ""              # ไม่ต้องใช้ user
 MOSQUITTO_PASS = ""              # ไม่ต้องใช้ password

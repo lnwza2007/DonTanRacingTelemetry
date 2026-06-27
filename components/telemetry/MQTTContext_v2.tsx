@@ -16,7 +16,13 @@ export interface VcuData {
   volt: number;
   curr: number;
   temp: number;
+  temp_inv?: number;
   soc: number;
+  vout?: number;
+  iq?: number;
+  id?: number;
+  power_kw?: number;
+  idc?: number;
 }
 
 export interface SuspensionFrame {
@@ -197,20 +203,36 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
         if (topic === TOPIC_VCU || topic === "balone2/telemetry/vcu") {
           try {
             const parsed = JSON.parse(payload);
-            if (typeof parsed.rpm === "number") {
-              latestVcuRef.current = {
-                rpm: parsed.rpm ?? 0,
-                speed: typeof parsed.speed === "number" ? parsed.speed : 0,
-                volt: typeof parsed.volt === "number" ? parsed.volt : (latestVcuRef.current?.volt ?? 0),
-                curr: typeof parsed.curr === "number" ? parsed.curr : (latestVcuRef.current?.curr ?? 0),
-                temp: typeof parsed.temp === "number" ? parsed.temp : (latestVcuRef.current?.temp ?? 0),
-                soc: typeof parsed.soc === "number" ? parsed.soc : (latestVcuRef.current?.soc ?? 0),
-              };
-              latestMessageCountRef.current.vcu += 1;
-            }
+            const safeN = (v: unknown, fallback = 0): number => {
+              const n = Number(v);
+              return (v !== null && v !== undefined && v !== "NaN" && !isNaN(n)) ? n : fallback;
+            };
+
+            // Accept BOTH new schema (can_telemetry_logger.py) and legacy schema (can_to_mqtt.py)
+            const newSchema = parsed.motor_rpm !== undefined;
+            const prev = latestVcuRef.current || {} as VcuData;
+
+            const vcuData: VcuData = {
+              rpm:   newSchema ? safeN(parsed.motor_rpm, prev.rpm)          : safeN(parsed.rpm, prev.rpm),
+              speed: newSchema ? safeN(parsed.vehicle_speed, prev.speed)    : safeN(parsed.speed, prev.speed),
+              volt:  newSchema ? safeN(parsed.hv_battery_voltage, prev.volt): safeN(parsed.volt, prev.volt),
+              curr:  newSchema ? safeN(parsed.hv_battery_current, prev.curr): safeN(parsed.curr, prev.curr),
+              temp:  newSchema ? safeN(parsed.temp_motor, prev.temp)        : safeN(parsed.temp, prev.temp),
+              temp_inv: newSchema ? safeN(parsed.temp_inverter, prev.temp_inv) : prev.temp_inv || 0,
+              soc:   newSchema ? safeN(parsed.bms_soc, prev.soc)            : safeN(parsed.soc, prev.soc),
+              vout:  newSchema ? safeN(parsed.vout, prev.vout)              : prev.vout || 0,
+              iq:    newSchema ? safeN(parsed.iq, prev.iq)                  : prev.iq || 0,
+              id:    newSchema ? safeN(parsed.id, prev.id)                  : prev.id || 0,
+              power_kw: newSchema ? safeN(parsed.power_kw, prev.power_kw)   : prev.power_kw || 0,
+              idc:   newSchema ? safeN(parsed.idc, prev.idc)                : prev.idc || 0,
+            };
+
+            latestVcuRef.current = vcuData;
+            latestMessageCountRef.current.vcu += 1;
           } catch (e) {
             console.error("[MQTT v2] Failed to parse VCU payload:", e);
           }
+
         } else if (topic === "balone2/telemetry/suspension") {
           try {
             const parsed = JSON.parse(payload);

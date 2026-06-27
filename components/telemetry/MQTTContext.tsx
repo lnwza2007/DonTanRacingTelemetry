@@ -44,7 +44,7 @@ interface MQTTContextType {
   isConnecting: boolean;
   suspension: SuspensionFrame | null;
   tireTemps: TireTemps | null;
-  vcu: { rpm: number; speed: number; throttle?: number; battery?: number } | null;
+  vcu: VcuData | null;
   messageCount: { susp: number; tire: number; vcu: number };
   suspensionHistory: SuspensionFrame[];
   errorMsg: string | null;
@@ -55,6 +55,35 @@ interface MQTTContextType {
   disconnect: () => void;
   updateConfig: (url: string, user: string, pass: string) => void;
   publish: (topic: string, message: string) => void;
+}
+
+// All 16 telemetry columns from can_telemetry_logger.py schema
+export interface VcuData {
+  // Core motion
+  rpm: number;           // motor_rpm
+  speed: number;         // vehicle_speed (km/h)
+  throttle_pct: number | null;  // throttle_pct (%)
+  brake_pct: number | null;     // brake_pct (%) — from Bamocar REG 0xF2
+  // HV Battery (from Bamocar REG 0x66 primary, or BMS CAN)
+  hv_battery_voltage: number | null;  // V
+  hv_battery_current: number | null;  // A (+ve=discharge, -ve=regen)
+  bms_soc: number | null;             // % State of Charge
+  bms_soh: number | null;             // % State of Health
+  // LV Battery
+  lv_battery_voltage: number | null;  // V (12V system)
+  // Temperatures
+  temp_motor: number | null;       // °C — from Bamocar REG 0x49
+  temp_inverter: number | null;    // °C — from Bamocar REG 0x4A
+  temp_bms_max: number | null;     // °C — from BMS CAN
+  // System status
+  sys_status: string;   // INIT / READY / RUNNING / FAULT
+  error_code: string;   // hex string e.g. "0x0000"
+  // Legacy aliases for backward compatibility with older consumers
+  throttle: number | null;  // alias of throttle_pct
+  voltage: number | null;   // alias of hv_battery_voltage
+  current: number | null;   // alias of hv_battery_current
+  battery: number | null;   // alias of bms_soc
+  timestamp: number;
 }
 
 const MQTTContext = createContext<MQTTContextType>({
@@ -90,7 +119,7 @@ export const MQTTProvider = ({ children }: { children: ReactNode }) => {
   // Live throttled states flushed to consumers at 4Hz (250ms) to ensure UI stability
   const [suspension, setSuspension] = useState<SuspensionFrame | null>({ mm: 35.20, volts: 2.1054, timestamp: Date.now() });
   const [tireTemps, setTireTemps] = useState<TireTemps | null>(DEFAULT_TIRE_TEMPS);
-  const [vcu, setVcu] = useState<any>(null);
+  const [vcu, setVcu] = useState<VcuData | null>(null);
   const [messageCount, setMessageCount] = useState({ susp: 0, tire: 0, vcu: 0 });
   const [suspensionHistory, setSuspensionHistory] = useState<SuspensionFrame[]>([]);
 
@@ -223,7 +252,8 @@ export const MQTTProvider = ({ children }: { children: ReactNode }) => {
           try {
             // Decodes from binary/comma-separated strings or simple arrays
             const cleaned = payload.replace(/[\[\]\s]/g, '');
-            const parsedArray = cleaned.split(',').map(Number).filter(n => !isNaN(n));
+            const parsedArray = cleaned.split(',').map(Number).filter((n: number) => !isNaN(n));
+
             
             if (parsedArray.length > 0) {
               const wheelKey = topic.split("balone2/telemetry/tire_")[1];
@@ -252,13 +282,46 @@ export const MQTTProvider = ({ children }: { children: ReactNode }) => {
         } else if (topic === TOPIC_VCU) {
           try {
             const parsed = JSON.parse(payload);
-            if (typeof parsed.rpm === 'number') {
+            // Helper: safely parse a number field; 'NaN' string or missing → null
+            const safeNum = (v: unknown): number | null => {
+              if (v === undefined || v === null || v === 'NaN' || v === '') return null;
+              const n = Number(v);
+              return isNaN(n) ? null : n;
+            };
+
+            // Support both old schema (rpm/speed/throttle/battery) and new 16-column schema
+            const rpm   = safeNum(parsed.motor_rpm   ?? parsed.rpm)   ?? 0;
+            const speed = safeNum(parsed.vehicle_speed ?? parsed.speed) ?? Math.round(rpm * 0.02871);
+
+            if (rpm > 0 || speed > 0) {
+              const soc = safeNum(parsed.bms_soc ?? parsed.battery);
               latestVcuRef.current = {
-                rpm: parsed.rpm,
-                speed: typeof parsed.speed === 'number' ? parsed.speed : Math.round(parsed.rpm * 0.02871),
-                throttle: parsed.throttle,
-                battery: parsed.battery,
-              };
+                // Core motion
+                rpm,
+                speed,
+                throttle_pct:        safeNum(parsed.throttle_pct ?? parsed.throttle),
+                brake_pct:           safeNum(parsed.brake_pct),
+                // HV Battery
+                hv_battery_voltage:  safeNum(parsed.hv_battery_voltage ?? parsed.voltage),
+                hv_battery_current:  safeNum(parsed.hv_battery_current ?? parsed.current),
+                bms_soc:             soc,
+                bms_soh:             safeNum(parsed.bms_soh),
+                // LV Battery
+                lv_battery_voltage:  safeNum(parsed.lv_battery_voltage),
+                // Temperatures
+                temp_motor:          safeNum(parsed.temp_motor),
+                temp_inverter:       safeNum(parsed.temp_inverter),
+                temp_bms_max:        safeNum(parsed.temp_bms_max),
+                // Status
+                sys_status:          parsed.sys_status ?? 'UNKNOWN',
+                error_code:          parsed.error_code ?? '0x0000',
+                // Legacy aliases
+                throttle:            safeNum(parsed.throttle_pct ?? parsed.throttle),
+                voltage:             safeNum(parsed.hv_battery_voltage ?? parsed.voltage),
+                current:             safeNum(parsed.hv_battery_current ?? parsed.current),
+                battery:             soc,
+                timestamp:           parsed.timestamp ?? Date.now(),
+              } satisfies VcuData;
               latestMessageCountRef.current.vcu += 1;
             }
           } catch (e) {
