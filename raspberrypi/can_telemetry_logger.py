@@ -673,7 +673,12 @@ def mqtt_publisher_thread():
         if rc != 0:
             print(f"[MQTT] Disconnected rc={rc} \u2014 will reconnect...")
 
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="dtr_logger")
+    try:
+        # paho-mqtt v2.0+
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="dtr_logger")
+    except AttributeError:
+        # paho-mqtt v1.x
+        client = mqtt.Client(client_id="dtr_logger")
     client.on_connect    = _on_connect
     client.on_disconnect = _on_disconnect
 
@@ -809,13 +814,6 @@ def main_loop(session_id):
                     "vehicle_speed":      snap.get("vehicle_speed"),
                     "throttle_pct":       snap.get("throttle_pct"),
                     "brake_pct":          snap.get("brake_pct"),
-                    # HV Battery
-                    "hv_battery_voltage": snap.get("hv_battery_voltage"),
-                    "hv_battery_current": snap.get("hv_battery_current"),
-                    "bms_soc":            snap.get("bms_soc"),
-                    "bms_soh":            snap.get("bms_soh"),
-                    # LV Battery
-                    "lv_battery_voltage": snap.get("lv_battery_voltage"),
                     # Advanced Motor
                     "vout":               snap.get("vout"),
                     "iq":                 snap.get("iq"),
@@ -825,10 +823,6 @@ def main_loop(session_id):
                     # Temperatures
                     "temp_motor":         snap.get("temp_motor"),
                     "temp_inverter":      snap.get("temp_inverter"),
-                    "temp_bms_max":       snap.get("temp_bms_max"),
-                    # System
-                    "sys_status":         snap.get("sys_status", "INIT"),
-                    "error_code":         snap.get("error_code", "0x0000"),
                 }, separators=(',', ':'), default=lambda x: None)  # compact JSON
                 mqtt_queue.put_nowait(payload)
             except queue.Full:
@@ -843,12 +837,11 @@ def main_loop(session_id):
             t_motor = snap.get('temp_motor')
             t_inv   = snap.get('temp_inverter')
             sys.stdout.write(
-                f"\r[{timestamp}] "
+                f"\r\033[K[{timestamp}] "
                 f"RPM:{str(snap.get('motor_rpm','NaN')):<5}  "
                 f"Spd:{str(snap.get('vehicle_speed','NaN')):<6}km/h  "
-                f"SoC:{str(snap.get('bms_soc','NaN')):<5}%  "
-                f"V:{str(snap.get('hv_battery_voltage','NaN')):<6}V  "
-                f"I:{str(snap.get('hv_battery_current','NaN')):<5}A  "
+                f"V_DC:{str(snap.get('hv_battery_voltage','NaN')):<6}V  "
+                f"I_DC:{str(snap.get('hv_battery_current','NaN')):<5}A  "
                 f"Thr:{str(snap.get('throttle_pct','NaN')):<5}%  "
                 f"Tmot:{f'{t_motor:.1f}' if t_motor is not None else 'NaN'}\u00b0C  "
                 f"Tinv:{f'{t_inv:.1f}'   if t_inv   is not None else 'NaN'}\u00b0C  "

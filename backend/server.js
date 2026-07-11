@@ -26,6 +26,60 @@ const MQTT_TOPIC_VCU = "balone2/telemetry/vcu";
 const LOG_DIR = path.join(__dirname, 'logs');
 const HEARTBEAT_TIMEOUT = 5000;
 
+// Google Sheets Integration Config
+const GOOGLE_SHEETS_URL = process.env.GOOGLE_SHEETS_URL || "https://script.google.com/macros/s/AKfycbysmJ1sYQjHO9nmdxr3DOWdSeLUxNQrc2VeBicpkzS-kwQQHGg9T4DR-FpH9xhrCFY/exec";
+const BATCH_INTERVAL_MS = 5000; // Upload to Google Sheets every 5 seconds
+let vcuBuffer = [];
+
+if (GOOGLE_SHEETS_URL) {
+  console.log(`[Google Sheets] Enabled. Targeting URL: ${GOOGLE_SHEETS_URL}`);
+} else {
+  console.warn(`[Google Sheets] Disabled. (GOOGLE_SHEETS_URL environment variable is not set)`);
+}
+
+// Function to upload buffered telemetry data to Google Sheets in batches
+const sendBatchToGoogleSheets = async () => {
+  if (vcuBuffer.length === 0) return;
+  if (!GOOGLE_SHEETS_URL) {
+    // Clear buffer to prevent memory leaks if not configured
+    vcuBuffer = [];
+    return;
+  }
+
+  const batchToSend = [...vcuBuffer];
+  vcuBuffer = [];
+
+  try {
+    const response = await fetch(GOOGLE_SHEETS_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ rows: batchToSend }),
+    });
+
+    const result = await response.json();
+    if (result.status === "success") {
+      console.log(`[Google Sheets] Successfully uploaded ${batchToSend.length} rows.`);
+    } else {
+      console.error(`[Google Sheets] Apps Script error:`, result.message);
+      // Prepend failed batch back to buffer for retry
+      vcuBuffer = [...batchToSend, ...vcuBuffer];
+    }
+  } catch (error) {
+    console.error(`[Google Sheets] Network/Upload error:`, error.message);
+    // Prepend failed batch back to buffer for retry
+    vcuBuffer = [...batchToSend, ...vcuBuffer];
+    // Keep buffer under 5000 rows to prevent high memory usage if offline for a long time
+    if (vcuBuffer.length > 5000) {
+      vcuBuffer = vcuBuffer.slice(-5000);
+    }
+  }
+};
+
+// Periodically trigger Google Sheets upload
+setInterval(sendBatchToGoogleSheets, BATCH_INTERVAL_MS);
+
 // Ensure logs directory exists
 fs.ensureDirSync(LOG_DIR);
 
@@ -148,6 +202,8 @@ mqttClient.on('message', (topic, message) => {
     try {
       const parsed = JSON.parse(rawString);
       io.emit('vcu', parsed);
+      // Buffer VCU data for Google Sheets batch upload
+      vcuBuffer.push(parsed);
     } catch (e) {
       console.error('[MQTT] Failed to parse VCU message:', e);
     }

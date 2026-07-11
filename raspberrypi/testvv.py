@@ -100,7 +100,7 @@ def get_voltage_divider():
     if BAMOCAR_MODEL == '400':
         return 54.971
     else:
-        return 31.499  # default to 700V series
+        return 31.499 * (250/141)  # default to 700V series
 
 def calculate_soc(voltage):
     if voltage <= MIN_BATTERY_V:
