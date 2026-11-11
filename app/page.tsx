@@ -24,6 +24,7 @@ const EngineeringTasksView = dynamic(() => import("@/components/telemetry/Engine
 const TeamChat = dynamic(() => import("@/components/telemetry/TeamChat"), { ssr: false });
 const AdminPanelView = dynamic(() => import("@/components/telemetry/AdminPanelView"), { ssr: false });
 const DriverInterfaceView = dynamic(() => import("@/components/telemetry/DriverInterfaceView"), { ssr: false });
+const PitWallView = dynamic(() => import("@/components/telemetry/PitWallView"), { ssr: false });
 const UnifiedTelemetryView = dynamic(() => import("@/components/telemetry/UnifiedTelemetryView"), { ssr: false });
 const MathWorkspaceView = dynamic(() => import("@/components/telemetry/MathWorkspaceView"), { ssr: false });
 const TelemetrySimulatorView = dynamic(() => import("@/components/telemetry/TelemetrySimulatorView"), { ssr: false });
@@ -32,14 +33,14 @@ const RaspberryPiTelemetryView_v2 = dynamic(() => import("@/components/telemetry
 
 function DashboardApp() {
   // Set default tab to Formula Student Unified Telemetry view
-  const [activeTab, setActiveTab] = useState("unified-telemetry");
+  const [activeTab, setActiveTab] = useState("pit-wall");
   const { user, logout, isAdmin } = useAuth();
   
   const { isConnected, tireTemps, telemetry, chartData, isEsp32Online, connect, disconnect } = useTelemetryContext();
 
   // Clean mount/unmount and subscription update logic depending on the active tab
   useEffect(() => {
-    const liveTabs = ["overview", "ev-mode", "tire-temp", "suspension", "driver-analytics", "map-gps", "driver-interface", "unified-telemetry", "math-channels", "simulator", "pi-telemetry", "ev-telemetry-v2"];
+    const liveTabs = ["pit-wall", "overview", "ev-mode", "tire-temp", "suspension", "driver-analytics", "map-gps", "driver-interface", "unified-telemetry", "math-channels", "simulator", "pi-telemetry", "ev-telemetry-v2"];
     
     if (liveTabs.includes(activeTab)) {
       console.log(`[Telemetry OS] Switching to live tab [${activeTab}]. Connecting MQTT stream...`);
@@ -60,6 +61,11 @@ function DashboardApp() {
 
   return (
     <Layout activeTab={activeTab} setActiveTab={handleTabChange} userRole={user?.role} onLogout={logout}>
+      {/* Pit wall: live readouts, limits and rule monitor */}
+      {activeTab === "pit-wall" && (
+        <PitWallView />
+      )}
+
       {/* Unified Telemetry Mission Control Page */}
       {activeTab === "unified-telemetry" && (
         <UnifiedTelemetryView />

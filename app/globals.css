@@ -5,97 +5,69 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+  Pit-wall palette. Graphite neutrals, one signal colour (amber) for "look here",
+  and status colours that mean something: green = healthy, amber = warning, red = limit/fault.
+  No glows, no gradients. Hue 255 with very low chroma keeps greys from looking dead.
+*/
 :root {
-  /* Racing Dark Theme - Always dark */
-  --background: oklch(0.08 0.01 260);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.12 0.01 260);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.12 0.01 260);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.65 0.25 145);
-  --primary-foreground: oklch(0.08 0.01 260);
-  --secondary: oklch(0.18 0.01 260);
-  --secondary-foreground: oklch(0.85 0 0);
-  --muted: oklch(0.15 0.01 260);
-  --muted-foreground: oklch(0.6 0 0);
-  --accent: oklch(0.65 0.22 25);
-  --accent-foreground: oklch(0.08 0.01 260);
-  --destructive: oklch(0.55 0.25 27);
-  --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.22 0.01 260);
-  --input: oklch(0.18 0.01 260);
-  --ring: oklch(0.65 0.25 145);
-  --chart-1: oklch(0.65 0.25 145);
-  --chart-2: oklch(0.65 0.22 25);
-  --chart-3: oklch(0.7 0.18 250);
-  --chart-4: oklch(0.75 0.15 60);
-  --chart-5: oklch(0.6 0.2 330);
-  --radius: 0.5rem;
-  
-  /* Racing specific colors */
-  --racing-green: oklch(0.65 0.25 145);
-  --racing-red: oklch(0.55 0.25 27);
-  --racing-yellow: oklch(0.85 0.18 90);
-  --racing-cyan: oklch(0.7 0.15 200);
-  --racing-orange: oklch(0.65 0.22 50);
-  
-  --sidebar: oklch(0.1 0.01 260);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.65 0.25 145);
-  --sidebar-primary-foreground: oklch(0.08 0.01 260);
-  --sidebar-accent: oklch(0.18 0.01 260);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.22 0.01 260);
-  --sidebar-ring: oklch(0.65 0.25 145);
+  --background: oklch(0.175 0.006 255);
+  --foreground: oklch(0.94 0.004 255);
+  --card: oklch(0.205 0.007 255);
+  --card-foreground: oklch(0.94 0.004 255);
+  --popover: oklch(0.225 0.008 255);
+  --popover-foreground: oklch(0.94 0.004 255);
+  --primary: oklch(0.82 0.15 82);                 /* signal amber */
+  --primary-foreground: oklch(0.2 0.02 82);
+  --secondary: oklch(0.25 0.008 255);
+  --secondary-foreground: oklch(0.88 0.004 255);
+  --muted: oklch(0.235 0.007 255);
+  --muted-foreground: oklch(0.7 0.01 255);        /* >= 4.5:1 on --card */
+  --accent: oklch(0.82 0.15 82);
+  --accent-foreground: oklch(0.2 0.02 82);
+  --destructive: oklch(0.66 0.2 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.32 0.008 255);
+  --input: oklch(0.27 0.008 255);
+  --ring: oklch(0.82 0.15 82);
+
+  --chart-1: oklch(0.82 0.15 82);
+  --chart-2: oklch(0.75 0.12 215);
+  --chart-3: oklch(0.76 0.16 150);
+  --chart-4: oklch(0.7 0.17 25);
+  --chart-5: oklch(0.72 0.13 305);
+
+  --ok: oklch(0.77 0.16 150);
+  --warn: oklch(0.82 0.15 82);
+  --crit: oklch(0.68 0.2 25);
+
+  /* legacy names still used by older views, mapped onto the calmer palette */
+  --racing-green: var(--ok);
+  --racing-red: var(--crit);
+  --racing-yellow: var(--warn);
+  --racing-cyan: oklch(0.75 0.12 215);
+  --racing-orange: oklch(0.74 0.15 55);
+
+  --radius: 0.375rem;
+
+  --sidebar: oklch(0.155 0.006 255);
+  --sidebar-foreground: oklch(0.94 0.004 255);
+  --sidebar-primary: oklch(0.82 0.15 82);
+  --sidebar-primary-foreground: oklch(0.2 0.02 82);
+  --sidebar-accent: oklch(0.24 0.008 255);
+  --sidebar-accent-foreground: oklch(0.94 0.004 255);
+  --sidebar-border: oklch(0.29 0.008 255);
+  --sidebar-ring: oklch(0.82 0.15 82);
 }
 
 .dark {
-  /* Same as root - always dark */
-  --background: oklch(0.08 0.01 260);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.12 0.01 260);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.12 0.01 260);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.65 0.25 145);
-  --primary-foreground: oklch(0.08 0.01 260);
-  --secondary: oklch(0.18 0.01 260);
-  --secondary-foreground: oklch(0.85 0 0);
-  --muted: oklch(0.15 0.01 260);
-  --muted-foreground: oklch(0.6 0 0);
-  --accent: oklch(0.65 0.22 25);
-  --accent-foreground: oklch(0.08 0.01 260);
-  --destructive: oklch(0.55 0.25 27);
-  --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.22 0.01 260);
-  --input: oklch(0.18 0.01 260);
-  --ring: oklch(0.65 0.25 145);
-  --chart-1: oklch(0.65 0.25 145);
-  --chart-2: oklch(0.65 0.22 25);
-  --chart-3: oklch(0.7 0.18 250);
-  --chart-4: oklch(0.75 0.15 60);
-  --chart-5: oklch(0.6 0.2 330);
-  
-  --racing-green: oklch(0.65 0.25 145);
-  --racing-red: oklch(0.55 0.25 27);
-  --racing-yellow: oklch(0.85 0.18 90);
-  --racing-cyan: oklch(0.7 0.15 200);
-  --racing-orange: oklch(0.65 0.22 50);
-  
-  --sidebar: oklch(0.1 0.01 260);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.65 0.25 145);
-  --sidebar-primary-foreground: oklch(0.08 0.01 260);
-  --sidebar-accent: oklch(0.18 0.01 260);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.22 0.01 260);
-  --sidebar-ring: oklch(0.65 0.25 145);
+  /* the app is dark-only; .dark is kept because components use dark: variants */
+  color-scheme: dark;
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -120,9 +92,12 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-crit: var(--crit);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -132,8 +107,6 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  
-  /* Racing theme colors */
   --color-racing-green: var(--racing-green);
   --color-racing-red: var(--racing-red);
   --color-racing-yellow: var(--racing-yellow);
@@ -145,26 +118,48 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+    font-size: 14px;
+    line-height: 1.45;
+    font-feature-settings: 'tnum' 1, 'ss01' 1;
+  }
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
 }
 
-/* Custom animations for telemetry dashboard */
-@keyframes pulse-glow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+/* numerals that must not jitter while values update */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+  letter-spacing: -0.01em;
 }
 
-@keyframes scan-line {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
+/*
+  Legibility floor for the older views, which were written with 6-10px labels.
+  Nothing on a pit-wall screen read at arm's length should be below 11px.
+*/
+.text-\[6px\], .text-\[7px\], .text-\[8px\], .text-\[9px\] { font-size: 11px !important; line-height: 1.3 !important; }
+.text-\[10px\] { font-size: 12px !important; line-height: 1.35 !important; }
+.text-\[11px\] { font-size: 12.5px !important; }
+.tracking-widest, .tracking-\[0\.25em\], .tracking-\[0\.2em\] { letter-spacing: 0.06em !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-.animate-scan-line {
-  animation: scan-line 3s linear infinite;
-}
+/* kept for older views */
+@keyframes pulse-glow { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+@keyframes scan-line { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+.animate-scan-line { animation: scan-line 3s linear infinite; }

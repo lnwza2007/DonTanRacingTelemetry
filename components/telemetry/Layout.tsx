@@ -28,9 +28,8 @@ import {
   Menu,
   X,
   Calculator,
-  Cloud,
-  CloudOff,
-  RefreshCw
+  Radio,
+  Activity
 } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 import { useMQTTData } from "@/components/telemetry/MQTTContext";
@@ -69,371 +68,232 @@ export function Layout({ children, activeTab, setActiveTab, userRole, onLogout }
     localStorage.setItem("fs_sidebar_collapsed", String(nextState));
   };
 
-  // Grouped Navigation Items for premium layout structure
-  const coreNavItems = [
-    { id: "overview", label: "Grid Overview", icon: LayoutDashboard, color: "text-amber-400" },
-    { id: "driver-interface", label: "Driver Cockpit", icon: Monitor, color: "text-red-400" },
-    { id: "unified-telemetry", label: "Unified Telemetry", icon: Database, color: "text-cyan-400" },
-    { id: "math-channels", label: "Math Channels", icon: Calculator, color: "text-emerald-400" },
-    { id: "simulator", label: "Telemetry Simulator", icon: Sliders, color: "text-purple-400" },
-    { id: "pi-telemetry", label: "Raspberry Pi Live", icon: Cpu, color: "text-[#a78bfa]" },
-    { id: "ev-telemetry-v2", label: "EV Telemetry v2", icon: Cpu, color: "text-emerald-400" }
+  const navGroups: { label: string; items: { id: string; label: string; icon: any }[] }[] = [
+    {
+      label: "Live",
+      items: [
+        { id: "pit-wall", label: "Pit wall", icon: Activity },
+        { id: "driver-interface", label: "Driver cockpit", icon: Monitor },
+        { id: "unified-telemetry", label: "Unified telemetry", icon: Database },
+        { id: "ev-telemetry-v2", label: "EV telemetry", icon: Cpu },
+        { id: "pi-telemetry", label: "Raspberry Pi", icon: Radio },
+        { id: "overview", label: "Grid overview", icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: "Analysis",
+      items: [
+        { id: "driver-analytics", label: "Driver analytics", icon: LineChart },
+        { id: "map-gps", label: "Track map", icon: Navigation },
+        { id: "math-channels", label: "Math channels", icon: Calculator },
+        { id: "simulator", label: "Simulator", icon: Sliders },
+        { id: "folders", label: "Session logs", icon: Folder },
+      ],
+    },
+    {
+      label: "Team",
+      items: [
+        { id: "tasks", label: "Engineering tasks", icon: CheckSquare },
+        { id: "team", label: "Team chat", icon: Users },
+        { id: "api-settings", label: "Credentials", icon: Key },
+        ...(userRole === "admin" ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
+      ],
+    },
   ];
 
-  const utilityNavItems = [
-    { id: "driver-analytics", label: "Driver Analytics", icon: LineChart },
-    { id: "map-gps", label: "Track Map & GPS", icon: Navigation },
-    { id: "tasks", label: "Engineering Tasks", icon: CheckSquare },
-    { id: "folders", label: "Session Logs", icon: Folder },
-    { id: "team", label: "Team Chat", icon: Users },
-    { id: "api-settings", label: "API Credentials", icon: Key }
-  ];
+  const activeItem = navGroups.flatMap((g) => g.items).find((item) => item.id === activeTab);
 
-  if (userRole === "admin") {
-    utilityNavItems.push({
-      id: "admin",
-      label: "Admin Panel",
-      icon: Shield
-    });
-  }
+  const NavButton = ({ item, collapsed, onPick }: { item: { id: string; label: string; icon: any }; collapsed: boolean; onPick: () => void }) => {
+    const Icon = item.icon;
+    const isActive = activeTab === item.id;
+    return (
+      <button
+        onClick={onPick}
+        aria-current={isActive ? "page" : undefined}
+        title={collapsed ? item.label : undefined}
+        className={cn(
+          "group relative flex w-full items-center rounded-md text-sm transition-colors",
+          collapsed ? "h-10 justify-center" : "h-9 gap-3 px-3",
+          isActive ? "bg-sidebar-accent text-foreground font-medium" : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
+        )}
+      >
+        {isActive && <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-primary" />}
+        <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+        {!collapsed && <span className="truncate">{item.label}</span>}
+      </button>
+    );
+  };
 
-  const activeItem = [...coreNavItems, ...utilityNavItems].find(item => item.id === activeTab);
+  // Older pages mix real feed values with demo data (fake HR, camera, breach log...). Say so.
+  const LEGACY_TABS = new Set(["overview", "driver-interface", "unified-telemetry", "driver-analytics", "math-channels", "ev-mode", "tire-temp", "suspension", "map-gps"]);
+
+  const connectionLabel = isConnected ? "Connected" : isConnecting ? "Connecting…" : "Offline";
+  const connectionDot = isConnected ? "bg-ok" : isConnecting ? "bg-warn" : "bg-crit";
 
   return (
-    <div className="min-h-screen bg-[#08080a] text-white flex font-inter selection:bg-red-500 selection:text-white">
-      
-      {/* 1. Sleek Collapsible Left Vertical Sidebar (Desktop) */}
-      <aside className={cn(
-        "hidden lg:flex bg-[#09090b] border-r border-[#18181b] flex-col justify-between shrink-0 h-screen sticky top-0 z-30 shadow-xl transition-all duration-300",
-        isSidebarCollapsed ? "w-20" : "w-64"
-      )}>
-        <div className="flex flex-col overflow-y-auto">
-          {/* Logo / Brand Header */}
-          <div className={cn(
-            "p-6 border-b border-[#18181b] flex items-center justify-between gap-1.5 transition-all duration-300",
-            isSidebarCollapsed && "p-4 justify-center"
-          )}>
+    <div className="min-h-screen bg-background text-foreground flex">
+      {/* Sidebar (desktop) */}
+      <aside
+        className={cn(
+          "hidden lg:flex flex-col justify-between shrink-0 h-screen sticky top-0 z-30 border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
+          isSidebarCollapsed ? "w-16" : "w-60"
+        )}
+      >
+        <div className="flex min-h-0 flex-col">
+          <div className={cn("flex h-14 items-center border-b border-sidebar-border", isSidebarCollapsed ? "justify-center" : "justify-between px-4")}>
             {!isSidebarCollapsed && (
-              <div className="flex flex-col gap-1.5 overflow-hidden animate-in fade-in duration-200">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse" />
-                  <h1 className="text-xs font-black tracking-[0.25em] text-white uppercase font-sans">
-                    TELEMETRY OS
-                  </h1>
-                </div>
-                <span className="text-[8px] text-zinc-500 font-mono tracking-widest uppercase">
-                  DONGTAAN RACING EV
-                </span>
+              <div className="min-w-0 leading-tight">
+                <div className="text-sm font-semibold tracking-tight">Dongtaan Racing</div>
+                <div className="text-xs text-muted-foreground">{vehicleType === "EV" ? "EV03 telemetry" : "IC telemetry"}</div>
               </div>
             )}
             <button
               onClick={toggleSidebar}
-              className="p-1.5 rounded-lg bg-[#121214] border border-[#27272a] hover:bg-[#18181b] text-zinc-400 hover:text-white transition-colors flex items-center justify-center shrink-0"
-              title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+              aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
-              {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              {isSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
             </button>
           </div>
 
-          {/* Navigation Links */}
-          <div className={cn("p-4 flex flex-col gap-6", isSidebarCollapsed && "p-2")}>
-            
-            {/* Core telemetry screens group */}
-            <div className="space-y-1.5">
-              {!isSidebarCollapsed ? (
-                <span className="text-[9px] font-mono text-zinc-600 font-bold uppercase tracking-widest pl-3 block mb-2.5 animate-in fade-in duration-200">
-                  Core Modes
-                </span>
-              ) : (
-                <div className="border-t border-[#18181b]/55 my-2" />
-              )}
-              {coreNavItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id)}
-                    className={cn(
-                      "flex items-center rounded-xl text-xs font-bold transition-all duration-150 relative border border-transparent w-full",
-                      isSidebarCollapsed ? "justify-center py-2.5 px-0" : "px-3 py-2.5 gap-3",
-                      isActive
-                        ? "bg-[#121214] text-white border-[#27272a]/55 shadow-inner"
-                        : "text-zinc-400 hover:bg-[#121214]/50 hover:text-white"
-                    )}
-                    title={isSidebarCollapsed ? item.label : undefined}
-                  >
-                    {isActive && (
-                      <span className={cn(
-                        "absolute bg-red-500 rounded-r-full",
-                        isSidebarCollapsed ? "left-0 top-2.5 w-1 h-5" : "left-0 top-3 w-1 h-4"
-                      )} />
-                    )}
-                    <Icon className={cn("w-4 h-4 shrink-0", isActive ? item.color : "text-zinc-500")} />
-                    {!isSidebarCollapsed && <span className="animate-in fade-in duration-200">{item.label}</span>}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Diagnostics and utilities group */}
-            <div className="space-y-1.5">
-              {!isSidebarCollapsed ? (
-                <span className="text-[9px] font-mono text-zinc-600 font-bold uppercase tracking-widest pl-3 block mb-2.5 animate-in fade-in duration-200">
-                  Diagnostics & Shunt
-                </span>
-              ) : (
-                <div className="border-t border-[#18181b]/55 my-3" />
-              )}
-              {utilityNavItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id)}
-                    className={cn(
-                      "flex items-center rounded-xl text-xs font-semibold transition-all duration-150 border border-transparent w-full",
-                      isSidebarCollapsed ? "justify-center py-2 px-0" : "px-3 py-2 gap-3",
-                      isActive
-                        ? "bg-[#121214] text-red-400 border-[#27272a]/55 shadow-inner"
-                        : "text-zinc-500 hover:bg-[#121214]/50 hover:text-white"
-                    )}
-                    title={isSidebarCollapsed ? item.label : undefined}
-                  >
-                    <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-red-400" : "text-zinc-600")} />
-                    {!isSidebarCollapsed && <span className="animate-in fade-in duration-200">{item.label}</span>}
-                  </button>
-                );
-              })}
-            </div>
-
-          </div>
+          <nav className={cn("flex flex-col gap-5 overflow-y-auto py-4", isSidebarCollapsed ? "px-2" : "px-3")}>
+            {navGroups.map((group) => (
+              <div key={group.label} className="flex flex-col gap-0.5">
+                {!isSidebarCollapsed && <div className="px-3 pb-1 text-xs font-medium text-muted-foreground/80">{group.label}</div>}
+                {isSidebarCollapsed && <div className="mx-2 mb-1 border-t border-sidebar-border" />}
+                {group.items.map((item) => (
+                  <NavButton key={item.id} item={item} collapsed={isSidebarCollapsed} onPick={() => setActiveTab(item.id)} />
+                ))}
+              </div>
+            ))}
+          </nav>
         </div>
 
-        {/* User Account / Sign Out Widget */}
-        <div className={cn(
-          "p-4 border-t border-[#18181b] bg-black/20 transition-all duration-300",
-          isSidebarCollapsed ? "flex flex-col items-center justify-center gap-4" : "flex items-center justify-between"
-        )}>
-          {isSidebarCollapsed ? (
-            <div className="flex flex-col items-center gap-3 w-full py-2">
-              <div className="w-8 h-8 rounded-full bg-[#121214] border border-[#27272a] flex items-center justify-center overflow-hidden shrink-0" title={`${user?.name || "Driver"} (${user?.role || "GUEST"})`}>
-                {user?.avatar ? (
-                  <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <UserIcon className="w-4 h-4 text-zinc-400" />
-                )}
-              </div>
-              <button
-                onClick={onLogout}
-                className="p-1.5 rounded-lg bg-[#121214] border border-[#27272a] hover:bg-red-500/10 hover:border-red-500/20 text-zinc-400 hover:text-red-400 transition-colors"
-                title="Sign Out Session"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
+        <div className={cn("flex items-center border-t border-sidebar-border p-3", isSidebarCollapsed ? "flex-col gap-2" : "justify-between gap-2")}>
+          <div className="flex min-w-0 items-center gap-2.5" title={`${user?.name || "Guest"} (${user?.role || "guest"})`}>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary">
+              {user?.avatar ? <img src={user.avatar} alt="" className="h-full w-full object-cover" /> : <UserIcon className="h-4 w-4 text-muted-foreground" />}
             </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-2.5 overflow-hidden animate-in fade-in duration-200">
-                <div className="w-8 h-8 rounded-full bg-[#121214] border border-[#27272a] flex items-center justify-center overflow-hidden shrink-0">
-                  {user?.avatar ? (
-                    <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
-                  ) : (
-                    <UserIcon className="w-4 h-4 text-zinc-400" />
-                  )}
-                </div>
-                <div className="flex flex-col truncate">
-                  <span className="text-[11px] font-bold text-white leading-none truncate">{user?.name || "Driver"}</span>
-                  <span className="text-[8px] font-mono text-zinc-500 uppercase mt-0.5 tracking-wider truncate">{user?.role || "GUEST"}</span>
-                </div>
+            {!isSidebarCollapsed && (
+              <div className="min-w-0 leading-tight">
+                <div className="truncate text-sm font-medium">{user?.name || "Guest"}</div>
+                <div className="truncate text-xs capitalize text-muted-foreground">{user?.role || "guest"}</div>
               </div>
-
-              <button
-                onClick={onLogout}
-                className="p-1.5 rounded-lg bg-[#121214] border border-[#27272a] hover:bg-red-500/10 hover:border-red-500/20 text-zinc-400 hover:text-red-400 transition-colors shrink-0"
-                title="Sign Out Session"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            </>
-          )}
+            )}
+          </div>
+          <button
+            onClick={onLogout}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </aside>
 
-      {/* Mobile Menu Panel Drawer */}
+      {/* Mobile drawer */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 bg-black/80 z-50 lg:hidden flex">
-          <div className="w-64 bg-[#09090b] h-full flex flex-col justify-between border-r border-[#18181b] animate-in slide-in-from-left duration-200">
-            <div className="flex flex-col">
-              <div className="p-6 border-b border-[#18181b] flex justify-between items-center">
-                <span className="text-xs font-black tracking-widest">TELEMETRY OS</span>
-                <button onClick={() => setMobileMenuOpen(false)}>
-                  <X className="w-4 h-4 text-zinc-400 hover:text-white" />
-                </button>
-              </div>
-              <div className="p-4 space-y-4">
-                {coreNavItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setMobileMenuOpen(false);
-                      }}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold w-full",
-                        activeTab === item.id ? "bg-[#121214] text-white" : "text-zinc-400"
-                      )}
-                    >
-                      <Icon className="w-4 h-4 text-zinc-500" />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <div className="flex h-full w-72 max-w-[85vw] flex-col border-r border-sidebar-border bg-sidebar">
+            <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4">
+              <span className="text-sm font-semibold">Dongtaan Racing</span>
+              <button onClick={() => setMobileMenuOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label="Close menu">
+                <X className="h-4 w-4" />
+              </button>
             </div>
+            <nav className="flex flex-col gap-5 overflow-y-auto p-3">
+              {navGroups.map((group) => (
+                <div key={group.label} className="flex flex-col gap-0.5">
+                  <div className="px-3 pb-1 text-xs font-medium text-muted-foreground/80">{group.label}</div>
+                  {group.items.map((item) => (
+                    <NavButton key={item.id} item={item} collapsed={false} onPick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }} />
+                  ))}
+                </div>
+              ))}
+            </nav>
           </div>
-          <div className="flex-1" onClick={() => setMobileMenuOpen(false)} />
+          <button className="flex-1 bg-black/60" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu" />
         </div>
       )}
 
-      {/* 2. Main content area */}
-      <div className="flex-1 flex flex-col min-h-screen bg-[#08080a] overflow-x-hidden">
-        
-        {/* Unified Top Control Header */}
-        <header className="bg-[#09090b]/85 border-b border-[#18181b] flex items-center justify-between px-6 py-4 sticky top-0 z-20 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            {/* Mobile menu trigger */}
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-1.5 rounded-lg bg-[#121214] border border-[#27272a] text-zinc-400 hover:text-white"
-            >
-              <Menu className="w-4 h-4" />
+      {/* Main */}
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-border bg-background px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <button onClick={() => setMobileMenuOpen(true)} className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground lg:hidden" aria-label="Open menu">
+              <Menu className="h-4 w-4" />
             </button>
-            
-            <div className="flex flex-col justify-center">
-              <h2 className="text-sm font-extrabold tracking-widest text-white uppercase font-sans">
-                {activeItem ? activeItem.label : "DASHBOARD"}
-              </h2>
-            </div>
+            <h1 className="truncate text-base font-semibold tracking-tight">{activeItem ? activeItem.label : "Dashboard"}</h1>
           </div>
 
-          {/* Network and Powertrain triggers */}
-          <div className="flex items-center gap-4">
-            
-            {/* Global Vehicle Powertrain Switcher */}
-            <div className="flex bg-[#121214] border border-[#27272a] rounded-full p-0.5 text-[9px] font-mono shadow-inner">
-              <button
-                onClick={() => setVehicleType("IC")}
-                className={cn(
-                  "px-3 py-1 rounded-full font-bold transition-all duration-200",
-                  vehicleType === "IC"
-                    ? "bg-red-500/20 text-red-500 border border-red-500/30"
-                    : "text-[#71717a] hover:text-white"
-                )}
-              >
-                IC MODE
-              </button>
-              <button
-                onClick={() => setVehicleType("EV")}
-                className={cn(
-                  "px-3 py-1 rounded-full font-bold transition-all duration-200",
-                  vehicleType === "EV"
-                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                    : "text-[#71717a] hover:text-white"
-                )}
-              >
-                EV MODE
-              </button>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex rounded-md border border-border p-0.5 text-xs" role="group" aria-label="Powertrain">
+              {(["EV", "IC"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setVehicleType(t)}
+                  aria-pressed={vehicleType === t}
+                  className={cn("h-7 rounded px-3 font-medium transition-colors", vehicleType === t ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground")}
+                >
+                  {t}
+                </button>
+              ))}
             </div>
 
-            {/* Lock Demo Data Toggle */}
             <button
               onClick={() => {
-                const nextState = !isDemoLocked;
-                setIsDemoLocked(nextState);
+                const next = !isDemoLocked;
+                setIsDemoLocked(next);
                 if (typeof window !== "undefined") {
-                  localStorage.setItem("dtr_lock_demo", String(nextState));
+                  localStorage.setItem("dtr_lock_demo", String(next));
                   window.dispatchEvent(new Event("storage"));
                 }
               }}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono text-[9px] font-extrabold uppercase tracking-wider transition-all duration-300 shadow-md border active:scale-95",
-                isDemoLocked
-                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.15)]"
-                  : "bg-zinc-800/40 text-zinc-500 border-zinc-700 hover:bg-zinc-800"
-              )}
-              title={isDemoLocked ? "Demo data is locked (static)" : "Demo data is running (fluctuating)"}
+              className="hidden md:flex h-8 items-center gap-2 rounded-md border border-border px-3 text-xs text-muted-foreground hover:text-foreground"
+              title={isDemoLocked ? "Simulated values are held still" : "Simulated values are changing"}
             >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>DEMO: {isDemoLocked ? "LOCKED" : "LIVE"}</span>
+              <Sliders className="h-3.5 w-3.5" />
+              Simulated data: {isDemoLocked ? "held" : "running"}
             </button>
 
-            {/* Highly interactive premium Cloud Connect toggle button visible on all pages */}
             <button
-              onClick={() => {
-                if (isConnected) {
-                  handleDisconnect();
-                } else {
-                  connectMqtt();
-                }
-              }}
-              className={cn(
-                "flex items-center gap-2 px-3.5 py-1.5 rounded-full font-mono text-[9px] font-extrabold uppercase tracking-wider transition-all duration-300 shadow-md border active:scale-95",
-                isConnected 
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.15)]"
-                  : isConnecting 
-                    ? "bg-amber-500/10 text-amber-400 border-amber-500/30 cursor-wait shadow-[0_0_12px_rgba(245,158,11,0.15)]"
-                    : "bg-[#18181b] text-red-400 border-red-500/30 hover:bg-red-500/10 hover:border-red-500/60 shadow-[0_0_12px_rgba(239,68,68,0.1)]"
-              )}
-              title={isConnected ? "Disconnect from Telemetry Cloud" : "Connect to Telemetry Cloud"}
+              onClick={() => (isConnected ? handleDisconnect() : connectMqtt())}
+              disabled={isConnecting}
+              className="flex h-8 items-center gap-2 rounded-md border border-border px-3 text-xs font-medium hover:bg-secondary disabled:cursor-wait"
+              title={isConnected ? "Disconnect from the telemetry broker" : "Connect to the telemetry broker"}
             >
-              {isConnected ? (
-                <>
-                  <Cloud className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]" />
-                  <span>CLOUD: CONNECTED</span>
-                </>
-              ) : isConnecting ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                  <span>CLOUD: PENDING</span>
-                </>
-              ) : (
-                <>
-                  <CloudOff className="w-3.5 h-3.5 text-red-400 animate-pulse" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                  <span>CONNECT TO CLOUD</span>
-                </>
-              )}
+              <span className={cn("h-2 w-2 rounded-full", connectionDot, isConnecting && "animate-pulse")} />
+              <span>{connectionLabel}</span>
+              <span className="hidden text-muted-foreground sm:inline">· {isConnected ? "Disconnect" : "Connect"}</span>
             </button>
           </div>
         </header>
 
-        {/* Content Body */}
-        <main className="flex-1 p-6 w-full max-w-7xl mx-auto">
+        <main className="mx-auto w-full max-w-[1600px] flex-1 p-4 sm:p-6">
+          {LEGACY_TABS.has(activeTab) && (
+            <div role="note" className="mb-4 flex items-center justify-between gap-3 rounded-md border border-warn/40 bg-warn/10 px-4 py-2 text-sm">
+              <span>Older page: parts of it show demo values. The Pit wall shows only what the live feed sends.</span>
+              <button onClick={() => setActiveTab("pit-wall")} className="shrink-0 font-medium text-warn hover:underline">Open Pit wall</button>
+            </div>
+          )}
           {children}
         </main>
-        
-        {/* Footer */}
-        <footer className="border-t border-[#18181b]/30 py-4 px-6 flex justify-between items-center text-[9px] font-mono text-zinc-600 bg-black/10 w-full shrink-0">
-          <span>DONGTAAN RACING • TELEMETRY OS v2.0</span>
+
+        <footer className="flex items-center justify-between border-t border-border px-4 py-3 text-xs text-muted-foreground sm:px-6">
+          <span>Dongtaan Racing · Kasetsart University</span>
           <button
             onClick={() => {
-              if (window.confirm("CRITICAL WARNING: Are you sure you want to PERMANENTLY delete your account? This action cannot be undone.")) {
+              if (window.confirm("Permanently delete your account? This cannot be undone.")) {
                 if (user?.id) deleteUser(user.id);
               }
             }}
-            className="text-red-500/40 hover:text-red-500 transition-colors uppercase tracking-widest font-bold"
+            className="hover:text-crit"
           >
-            Delete Account
+            Delete account
           </button>
         </footer>
       </div>
-
     </div>
   );
 }

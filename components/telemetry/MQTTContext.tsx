@@ -2,10 +2,10 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from "react";
 
-// Default Preset Configurations (HiveMQ Cloud - for public access via Vercel)
-const DEFAULT_BROKER = "wss://efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud:8884/mqtt";
-const DEFAULT_USER = "dongtaan_vcu";
-const DEFAULT_PASS = "Frank2007";
+// Broker settings come from NEXT_PUBLIC_MQTT_* (see .env.example). Nothing secret is stored in source.
+const DEFAULT_BROKER = process.env.NEXT_PUBLIC_MQTT_URL ?? "";
+const DEFAULT_USER = process.env.NEXT_PUBLIC_MQTT_USER ?? "";
+const DEFAULT_PASS = process.env.NEXT_PUBLIC_MQTT_PASS ?? "";
 
 const TOPIC_SUSPENSION = "balone2/telemetry/suspension";
 const TOPIC_TIRE = "balone2/telemetry/tire_fl";

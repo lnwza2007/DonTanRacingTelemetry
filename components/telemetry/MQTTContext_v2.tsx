@@ -2,10 +2,10 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from "react";
 
-// Default Preset Configurations — DTR EV HiveMQ Cloud
-const DEFAULT_BROKER = "wss://efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud:8884/mqtt";
-const DEFAULT_USER = "dongtaan_vcu";
-const DEFAULT_PASS = "Frank2007";
+// Broker settings come from NEXT_PUBLIC_MQTT_* (see .env.example). Nothing secret is stored in source.
+const DEFAULT_BROKER = process.env.NEXT_PUBLIC_MQTT_URL ?? "";
+const DEFAULT_USER = process.env.NEXT_PUBLIC_MQTT_USER ?? "";
+const DEFAULT_PASS = process.env.NEXT_PUBLIC_MQTT_PASS ?? "";
 
 const TOPIC_VCU = "ev/telemetry";
 
@@ -25,6 +25,10 @@ export interface VcuData {
   idc?: number;
 }
 
+export type { FeedKey, FeedState } from "@/lib/feed";
+import { FEED_ALIASES, mergeFeed } from "@/lib/feed";
+import type { FeedKey, FeedState } from "@/lib/feed";
+
 export interface SuspensionFrame {
   mm: number;
   volts: number;
@@ -42,6 +46,7 @@ interface MQTTContextType {
   isConnected: boolean;
   isConnecting: boolean;
   vcu: VcuData | null;
+  feed: FeedState;
   suspension: SuspensionFrame | null;
   tireTemps: TireTemps | null;
   messageCount: { susp: number; tire: number; vcu: number };
@@ -75,6 +80,7 @@ const MQTTContext_v2 = createContext<MQTTContextType>({
   isConnected: false,
   isConnecting: false,
   vcu: null,
+  feed: { values: {}, seen: {} },
   suspension: { mm: 35.20, volts: 2.1054, timestamp: Date.now() },
   tireTemps: DEFAULT_TIRE_TEMPS,
   messageCount: { susp: 0, tire: 0, vcu: 0 },
@@ -111,6 +117,9 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
   const latestSuspensionRef = useRef<SuspensionFrame | null>({ mm: 35.20, volts: 2.1054, timestamp: Date.now() });
   const latestTireTempsRef = useRef<TireTemps | null>(DEFAULT_TIRE_TEMPS);
   const latestVcuRef = useRef<VcuData | null>(null);
+  const feedRef = useRef<FeedState>({ values: {}, seen: {} });
+  const feedDirty = useRef(false);
+  const [feed, setFeed] = useState<FeedState>({ values: {}, seen: {} });
   const latestMessageCountRef = useRef({ susp: 0, tire: 0, vcu: 0 });
   const historyRef = useRef<SuspensionFrame[]>([]);
 
@@ -189,6 +198,9 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
         client.subscribe("balone2/telemetry/vcu", (err: any) => {
           if (!err) console.log("[MQTT v2] Subscribed to: balone2/telemetry/vcu");
         });
+        client.subscribe("balone2/telemetry/motec", (err: any) => {
+          if (!err) console.log("[MQTT v2] Subscribed to: balone2/telemetry/motec");
+        });
         client.subscribe("balone2/telemetry/suspension", (err: any) => {
           if (!err) console.log("[MQTT v2] Subscribed to: balone2/telemetry/suspension");
         });
@@ -200,16 +212,21 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
       client.on("message", (topic: string, message: any) => {
         const payload = message.toString();
 
-        if (topic === TOPIC_VCU || topic === "balone2/telemetry/vcu") {
+        if (topic === TOPIC_VCU || topic === "balone2/telemetry/vcu" || topic === "balone2/telemetry/motec") {
           try {
             const parsed = JSON.parse(payload);
+            // field-level feed: the BCU and the motor logger publish DIFFERENT fields on the same topic,
+            // so merge per field instead of choosing a schema per packet.
+            const flat = parsed && typeof parsed.data === "object" ? { ...parsed, ...parsed.data } : parsed;
+            if (mergeFeed(feedRef.current, flat, Date.now())) feedDirty.current = true;
+            if (topic === "balone2/telemetry/motec") { latestMessageCountRef.current.vcu += 1; return; }
             const safeN = (v: unknown, fallback = 0): number => {
               const n = Number(v);
               return (v !== null && v !== undefined && v !== "NaN" && !isNaN(n)) ? n : fallback;
             };
 
             // Accept BOTH new schema (can_telemetry_logger.py) and legacy schema (can_to_mqtt.py)
-            const newSchema = parsed.motor_rpm !== undefined;
+            const newSchema = parsed.motor_rpm !== undefined || parsed.hv_battery_voltage !== undefined;
             const prev = latestVcuRef.current || {} as VcuData;
 
             const vcuData: VcuData = {
@@ -336,6 +353,10 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
       if (latestSuspensionRef.current) setSuspension(latestSuspensionRef.current);
       if (latestTireTempsRef.current) setTireTemps(latestTireTempsRef.current);
       if (latestVcuRef.current) setVcu(latestVcuRef.current);
+      if (feedDirty.current) {
+        feedDirty.current = false;
+        setFeed({ values: { ...feedRef.current.values }, seen: { ...feedRef.current.seen } });
+      }
       setSuspensionHistory([...historyRef.current]);
       setMessageCount({
         susp: latestMessageCountRef.current.susp,
@@ -349,7 +370,7 @@ export const MQTTProvider_v2 = ({ children }: { children: ReactNode }) => {
   return (
     <MQTTContext_v2.Provider
       value={{
-        isConnected, isConnecting, vcu, suspension, tireTemps,
+        isConnected, isConnecting, vcu, feed, suspension, tireTemps,
         messageCount, suspensionHistory, errorMsg,
         brokerUrl, username, password,
         connect, disconnect, updateConfig, publish,

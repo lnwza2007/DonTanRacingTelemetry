@@ -102,7 +102,7 @@ MQTT_USE_HIVEMQ     = True
 HIVEMQ_BROKER       = "efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud"
 HIVEMQ_PORT         = 8883
 HIVEMQ_USER         = "dongtaan_vcu"
-HIVEMQ_PASS         = "Frank2007"
+HIVEMQ_PASS         = os.environ.get("HIVEMQ_PASS", "")  # export HIVEMQ_PASS=... (never commit it)
 
 # Local Mosquitto บน Raspberry Pi (IP 172.20.10.3)
 MOSQUITTO_BROKER    = "172.20.10.3"
