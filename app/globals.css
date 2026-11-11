@@ -158,6 +158,48 @@
   }
 }
 
+/*
+  Older pages (written before the redesign) hard-code neon colours, glows, huge radii and all-caps labels.
+  Until each is rebuilt, map them onto the same calm palette. Unlayered rules beat Tailwind's layered utilities.
+  Meaning stays: cyan = information, emerald = healthy, red = fault, amber = warning, purple = secondary series.
+*/
+.text-cyan-300, .text-cyan-400, .text-cyan-500, .text-sky-400, .text-blue-400 { color: var(--chart-2) !important; }
+.text-emerald-300, .text-emerald-400, .text-emerald-500, .text-green-400, .text-green-500 { color: var(--ok) !important; }
+.text-red-300, .text-red-400, .text-red-500, .text-rose-400 { color: var(--crit) !important; }
+.text-amber-300, .text-amber-400, .text-amber-500, .text-yellow-400, .text-orange-400 { color: var(--warn) !important; }
+.text-purple-300, .text-purple-400, .text-violet-400, .text-pink-400, .text-\[\#a78bfa\] { color: var(--chart-5) !important; }
+.text-zinc-200, .text-zinc-300, .text-white, .text-slate-200 { color: var(--foreground) !important; }
+.text-zinc-400, .text-zinc-500, .text-zinc-600, .text-slate-400, .text-slate-500 { color: var(--muted-foreground) !important; }
+
+.bg-cyan-500\/10, .bg-cyan-500\/20, .bg-cyan-950\/20 { background-color: color-mix(in oklch, var(--chart-2) 14%, transparent) !important; }
+.bg-emerald-500\/10, .bg-emerald-500\/20, .bg-emerald-950\/20 { background-color: color-mix(in oklch, var(--ok) 14%, transparent) !important; }
+.bg-red-500\/10, .bg-red-500\/20, .bg-red-950\/20 { background-color: color-mix(in oklch, var(--crit) 14%, transparent) !important; }
+.bg-amber-500\/10, .bg-amber-500\/20 { background-color: color-mix(in oklch, var(--warn) 14%, transparent) !important; }
+.bg-cyan-500, .bg-cyan-400 { background-color: var(--chart-2) !important; }
+.bg-emerald-500, .bg-emerald-400 { background-color: var(--ok) !important; }
+.bg-red-500, .bg-red-600 { background-color: var(--crit) !important; }
+.bg-amber-500, .bg-amber-400 { background-color: var(--warn) !important; }
+.border-cyan-500, .border-cyan-500\/20, .border-cyan-500\/30, .border-cyan-500\/50 { border-color: color-mix(in oklch, var(--chart-2) 45%, var(--border)) !important; }
+.border-emerald-500, .border-emerald-500\/20, .border-emerald-500\/30 { border-color: color-mix(in oklch, var(--ok) 45%, var(--border)) !important; }
+.border-red-500, .border-red-500\/20, .border-red-500\/30 { border-color: color-mix(in oklch, var(--crit) 45%, var(--border)) !important; }
+.border-amber-500\/20, .border-amber-500\/30 { border-color: color-mix(in oklch, var(--warn) 45%, var(--border)) !important; }
+
+/* near-black hard-coded surfaces -> theme surfaces */
+.bg-\[\#030303\], .bg-\[\#08080a\], .bg-\[\#09090b\], .bg-black { background-color: var(--background) !important; }
+.bg-\[\#0a0a0c\], .bg-\[\#0c0c0e\], .bg-\[\#0d0d10\], .bg-\[\#101012\], .bg-zinc-950, .bg-zinc-900 { background-color: var(--card) !important; }
+.bg-\[\#121214\], .bg-\[\#18181b\], .bg-zinc-800 { background-color: var(--secondary) !important; }
+.bg-black\/20, .bg-black\/30, .bg-black\/40, .bg-black\/50 { background-color: color-mix(in oklch, var(--background) 60%, transparent) !important; }
+.border-\[\#18181b\], .border-\[\#27272a\], .border-\[\#1f1f23\], .border-zinc-800, .border-zinc-700, .border-white\/5, .border-white\/10 { border-color: var(--border) !important; }
+
+/* shape and type */
+.rounded-xl, .rounded-2xl, .rounded-3xl { border-radius: var(--radius-lg) !important; }
+.rounded-lg { border-radius: var(--radius-md) !important; }
+.font-black, .font-extrabold { font-weight: 600 !important; }
+.uppercase { text-transform: none !important; }
+[class*="shadow-["], .shadow-xl, .shadow-2xl, .shadow-lg, .shadow-md, .shadow-inner { box-shadow: none !important; }
+[class*="backdrop-blur"] { backdrop-filter: none !important; }
+[class*="blur-3xl"], [class*="blur-2xl"] { display: none !important; }
+
 /* kept for older views */
 @keyframes pulse-glow { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 @keyframes scan-line { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }

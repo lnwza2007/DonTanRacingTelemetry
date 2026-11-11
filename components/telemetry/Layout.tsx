@@ -68,16 +68,12 @@ export function Layout({ children, activeTab, setActiveTab, userRole, onLogout }
     localStorage.setItem("fs_sidebar_collapsed", String(nextState));
   };
 
-  const navGroups: { label: string; items: { id: string; label: string; icon: any }[] }[] = [
+  const navGroups: { label: string; older?: boolean; items: { id: string; label: string; icon: any }[] }[] = [
     {
       label: "Live",
       items: [
         { id: "pit-wall", label: "Pit wall", icon: Activity },
         { id: "driver-interface", label: "Driver cockpit", icon: Monitor },
-        { id: "unified-telemetry", label: "Unified telemetry", icon: Database },
-        { id: "ev-telemetry-v2", label: "EV telemetry", icon: Cpu },
-        { id: "pi-telemetry", label: "Raspberry Pi", icon: Radio },
-        { id: "overview", label: "Grid overview", icon: LayoutDashboard },
       ],
     },
     {
@@ -86,7 +82,6 @@ export function Layout({ children, activeTab, setActiveTab, userRole, onLogout }
         { id: "driver-analytics", label: "Driver analytics", icon: LineChart },
         { id: "map-gps", label: "Track map", icon: Navigation },
         { id: "math-channels", label: "Math channels", icon: Calculator },
-        { id: "simulator", label: "Simulator", icon: Sliders },
         { id: "folders", label: "Session logs", icon: Folder },
       ],
     },
@@ -99,8 +94,21 @@ export function Layout({ children, activeTab, setActiveTab, userRole, onLogout }
         ...(userRole === "admin" ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
       ],
     },
+    {
+      // earlier live screens: they overlap the Pit wall and still mix in demo values
+      label: "Older screens",
+      older: true,
+      items: [
+        { id: "unified-telemetry", label: "Unified telemetry", icon: Database },
+        { id: "ev-telemetry-v2", label: "EV telemetry", icon: Cpu },
+        { id: "pi-telemetry", label: "Raspberry Pi", icon: Radio },
+        { id: "overview", label: "Grid overview", icon: LayoutDashboard },
+        { id: "simulator", label: "Simulator", icon: Sliders },
+      ],
+    },
   ];
 
+  const [showOlder, setShowOlder] = useState(false);
   const activeItem = navGroups.flatMap((g) => g.items).find((item) => item.id === activeTab);
 
   const NavButton = ({ item, collapsed, onPick }: { item: { id: string; label: string; icon: any }; collapsed: boolean; onPick: () => void }) => {
@@ -157,15 +165,25 @@ export function Layout({ children, activeTab, setActiveTab, userRole, onLogout }
           </div>
 
           <nav className={cn("flex flex-col gap-5 overflow-y-auto py-4", isSidebarCollapsed ? "px-2" : "px-3")}>
-            {navGroups.map((group) => (
-              <div key={group.label} className="flex flex-col gap-0.5">
-                {!isSidebarCollapsed && <div className="px-3 pb-1 text-xs font-medium text-muted-foreground/80">{group.label}</div>}
-                {isSidebarCollapsed && <div className="mx-2 mb-1 border-t border-sidebar-border" />}
-                {group.items.map((item) => (
-                  <NavButton key={item.id} item={item} collapsed={isSidebarCollapsed} onPick={() => setActiveTab(item.id)} />
-                ))}
-              </div>
-            ))}
+            {navGroups.map((group) => {
+              const open = !group.older || showOlder || group.items.some((i) => i.id === activeTab);
+              return (
+                <div key={group.label} className="flex flex-col gap-0.5">
+                  {!isSidebarCollapsed && (group.older ? (
+                    <button onClick={() => setShowOlder((v) => !v)} aria-expanded={open} className="flex items-center justify-between px-3 pb-1 text-xs font-medium text-muted-foreground/80 hover:text-foreground">
+                      {group.label}
+                      <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+                    </button>
+                  ) : (
+                    <div className="px-3 pb-1 text-xs font-medium text-muted-foreground/80">{group.label}</div>
+                  ))}
+                  {isSidebarCollapsed && <div className="mx-2 mb-1 border-t border-sidebar-border" />}
+                  {(open || isSidebarCollapsed) && group.items.map((item) => (
+                    <NavButton key={item.id} item={item} collapsed={isSidebarCollapsed} onPick={() => setActiveTab(item.id)} />
+                  ))}
+                </div>
+              );
+            })}
           </nav>
         </div>
 
