@@ -6,6 +6,7 @@ export type FeedKey =
   | "rpm" | "speed" | "throttle" | "brake"                                   // motor controller (BAMOCAR logger)
   | "power_kw" | "idc" | "temp_motor" | "temp_inv" | "mot_current" | "drive_enabled" | "drive_errors"
   | "volt" | "curr" | "soc" | "bms_power_kw" | "temp_cell_max"               // BMS (BCU logger)
+  | "lat" | "lon"                                                              // GPS, if a receiver is fitted
   | "cell_v_max" | "cell_v_min" | "cell_v_avg" | "cell_v_diff";
 export interface FeedState {
   values: Partial<Record<FeedKey, number>>;
@@ -28,6 +29,8 @@ export const FEED_ALIASES: Record<FeedKey, string[]> = {
   soc: ["bms_soc", "soc"],
   bms_power_kw: ["power"],                       // BCU "Pack Measurements" power, kW
   temp_cell_max: ["temp_bms_max"],
+  lat: ["gps_lat", "latitude", "lat"],
+  lon: ["gps_lon", "longitude", "lon", "lng"],
   cell_v_max: ["cell_voltage_max"],
   cell_v_min: ["cell_voltage_min"],
   cell_v_avg: ["cell_voltage_avg"],
