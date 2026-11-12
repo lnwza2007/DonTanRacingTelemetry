@@ -21,7 +21,6 @@ const ApiSettingsView = dynamic(() => import("@/components/telemetry/ApiSettings
 
 const FoldersView = dynamic(() => import("@/components/telemetry/FoldersView"), { ssr: false });
 const EngineeringTasksView = dynamic(() => import("@/components/telemetry/EngineeringTasksView"), { ssr: false });
-const TeamChat = dynamic(() => import("@/components/telemetry/TeamChat"), { ssr: false });
 const AdminPanelView = dynamic(() => import("@/components/telemetry/AdminPanelView"), { ssr: false });
 const DriverInterfaceView = dynamic(() => import("@/components/telemetry/DriverInterfaceView"), { ssr: false });
 const PitWallView = dynamic(() => import("@/components/telemetry/PitWallView"), { ssr: false });
@@ -147,9 +146,6 @@ function DashboardApp() {
       )}
       {activeTab === "tasks" && (
         <EngineeringTasksView />
-      )}
-      {activeTab === "team" && (
-        <TeamChat />
       )}
       {activeTab === "admin" && isAdmin && (
         <AdminPanelView />

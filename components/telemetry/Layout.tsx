@@ -7,7 +7,6 @@ import {
   Zap,
   Folder,
   CheckSquare,
-  Users,
   Shield,
   LogOut,
   User as UserIcon,
@@ -91,7 +90,6 @@ export function Layout({ children, activeTab, setActiveTab, userRole, onLogout }
       label: "Team",
       items: [
         { id: "tasks", label: "Engineering tasks", icon: CheckSquare },
-        { id: "team", label: "Team chat", icon: Users },
         { id: "api-settings", label: "Credentials", icon: Key },
         ...(userRole === "admin" ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
       ],
