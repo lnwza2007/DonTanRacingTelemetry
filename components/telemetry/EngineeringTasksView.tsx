@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { CheckCircle2, Circle, AlertTriangle, Plus, GripVertical, User, Tag, Clock, ShieldCheck, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -18,14 +18,12 @@ interface Task {
   column: ColumnId;
 }
 
-// Initial Data
-const INITIAL_TASKS: Task[] = [
-  { id: "t1", title: "Calibrate FL Tire Sensor", assignee: "James", priority: "High", category: "Telemetry", column: "todo" },
-  { id: "t2", title: "Check Battery Cooling Loop", assignee: "Frank", priority: "High", category: "EV System", column: "in_progress" },
-  { id: "t3", title: "Adjust Front Wing Aero", assignee: "Alex", priority: "Medium", category: "Aerodynamics", column: "todo" },
-  { id: "t4", title: "Verify Inverter Firmware", assignee: "Frank", priority: "Low", category: "Software", column: "testing" },
-  { id: "t5", title: "Torque Check Suspension", assignee: "James", priority: "High", category: "Chassis", column: "done" },
-];
+// Starts empty: no pre-filled tasks. Saved in this browser only (not shared between people or devices).
+const STORE_KEY = "dtr-tasks-v1";
+const load = <T,>(k: string, fallback: T): T => {
+  try { const v = localStorage.getItem(`${STORE_KEY}:${k}`); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; }
+};
+const save = (k: string, v: unknown) => { try { localStorage.setItem(`${STORE_KEY}:${k}`, JSON.stringify(v)); } catch {} };
 
 const CHECKLIST_ITEMS = [
   { id: "c1", label: "HV Battery Fully Charged & Secured" },
@@ -36,10 +34,11 @@ const CHECKLIST_ITEMS = [
 ];
 
 export default function EngineeringTasksView() {
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  const [checklist, setChecklist] = useState<Record<string, boolean>>({
-    c1: true, c2: true, c3: false, c4: true, c5: false
-  });
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [checklist, setChecklist] = useState<Record<string, boolean>>({});
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { setTasks(load<Task[]>("tasks", [])); setChecklist(load<Record<string, boolean>>("checklist", {})); setLoaded(true); }, []);
+  useEffect(() => { if (loaded) { save("tasks", tasks); save("checklist", checklist); } }, [tasks, checklist, loaded]);
   
   // Drag State
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
@@ -93,7 +92,7 @@ export default function EngineeringTasksView() {
       <div className="w-72 bg-[#121214] border-r border-[#27272a] flex flex-col hidden md:flex shrink-0">
         <div className="p-4 border-b border-[#27272a] flex items-center justify-between">
           <h2 className="text-xs font-semibold tracking-widest text-muted-foreground flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4" /> PRE-RUN SCRUTINEERING
+            <ShieldCheck className="w-4 h-4" /> TEAM PRE-RUN CHECKLIST
           </h2>
         </div>
         
@@ -104,10 +103,11 @@ export default function EngineeringTasksView() {
             ? "bg-green-500/10 text-green-500 border-green-500/20" 
             : "bg-red-500/10 text-red-500 border-red-500/20"
         )}>
-          {allChecked ? "VEHICLE READY" : "VEHICLE NOT READY"}
+          {allChecked ? "ALL ITEMS TICKED" : `${CHECKLIST_ITEMS.filter(i => !checklist[i.id]).length} ITEMS OPEN`}
         </div>
 
         <div className="flex-1 p-4 overflow-y-auto space-y-3">
+          <p className="text-xs text-muted-foreground">Team reminder list only. It is not the official technical inspection; see docs/EV_Electrical_Tech_Inspection_Checklist.md.</p>
           {CHECKLIST_ITEMS.map(item => {
             const isChecked = checklist[item.id];
             return (
@@ -139,7 +139,7 @@ export default function EngineeringTasksView() {
         <div className="p-4 border-b border-[#27272a] flex items-center justify-between bg-[#121214]">
           <div>
             <h1 className="text-lg font-bold font-inter text-white">Engineering Tasks</h1>
-            <p className="text-xs text-muted-foreground">Manage and track pit-lane operations.</p>
+            <p className="text-xs text-muted-foreground">Saved in this browser only. Other people and devices do not see these tasks.</p>
           </div>
           <button 
             onClick={() => setIsModalOpen(true)}
