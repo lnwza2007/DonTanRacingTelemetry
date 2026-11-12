@@ -46,7 +46,7 @@ N_MAX = 4999
 USE_LOCAL_MOSQUITTO = True     # True = Local Mosquitto | False = HiveMQ Cloud
 
 # HiveMQ Cloud Configurations (TLS Encrypted)
-HIVEMQ_BROKER = "efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud"
+HIVEMQ_BROKER = "q2d87a43.ala.asia-southeast1.emqxsl.com"
 HIVEMQ_PORT = 8883
 HIVEMQ_USER = "dongtaan_vcu"
 HIVEMQ_PASS = os.environ.get("HIVEMQ_PASS", "")  # export HIVEMQ_PASS=... (never commit it)

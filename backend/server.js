@@ -17,7 +17,7 @@ const io = new Server(server, {
 });
 
 // Configuration
-const MQTT_BROKER = "wss://efac802b061a404e8f36ee01911f3a83.s1.eu.hivemq.cloud:8884/mqtt";
+const MQTT_BROKER = "wss://q2d87a43.ala.asia-southeast1.emqxsl.com:8084/mqtt";
 const MQTT_USER = "dongtaan_vcu";
 const MQTT_PASS = process.env.MQTT_PASS || ""; // set in the environment, never in source
 const MQTT_TOPIC_TIRE = "balone2/telemetry/tire_fl";

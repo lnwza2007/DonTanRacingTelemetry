@@ -1,6 +1,6 @@
 # Dongtaan Racing — Telemetry dashboard
 
-Next.js 16 + React 19. Live data comes from MQTT over WebSocket (HiveMQ Cloud).
+Next.js 16 + React 19. Live data comes from MQTT over WebSocket (EMQX Cloud Serverless, see ../broker/EMQX.md).
 
 ## Run locally
 ```bash
@@ -18,6 +18,6 @@ Without credentials the Pit wall says "Broker offline". Tick **Simulated feed** 
 
 ## Secrets
 Nothing secret is stored in source. Browser code can read every `NEXT_PUBLIC_*` value, so the web user must be
-read-only (HiveMQ ACL: subscribe to the telemetry topics only). Publishers (Raspberry Pi, `backend/server.js`) use a
+read-only (broker ACL: subscribe to the telemetry topics only). Publishers (Raspberry Pi, `backend/server.js`) use a
 separate credential through `HIVEMQ_PASS` / `MQTT_PASS`.
-The old password is still in this repository's git history: rotate it in HiveMQ.
+The old password is still in this repository's git history: rotate it in HiveMQ, which is closing 2026-12-31.
