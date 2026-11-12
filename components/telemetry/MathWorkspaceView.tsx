@@ -19,7 +19,21 @@ const STALE_MS = 2000;
 const WINDOW_S = 60;
 const STORE = "dtr-math-v1";
 
-type Chan = { id: number; name: string; expr: string };
+type Chan = { id: number; name: string; expr: string; unit?: string; note?: string };
+
+// One-click channels. Constants: gear 3.2, wheel radius 0.2032 m (km/h per motor rpm = 60*2*pi*0.2032/1000/3.2), Kt 0.64 Nm/A (assumption), rule limit 80 kW, 168 A continuous.
+const PRESETS: { name: string; expr: string; unit: string; note?: string }[] = [
+  { name: "State of charge", expr: "soc", unit: "%", note: "From the BMS" },
+  { name: "Battery power", expr: "volt * curr / 1000", unit: "kW", note: "Pack voltage x pack current" },
+  { name: "Margin to 80 kW rule", expr: "80 - power_kw", unit: "kW", note: "Negative means over the limit" },
+  { name: "Current vs 168 A continuous", expr: "abs(curr) / 168 * 100", unit: "%", note: "Over 100% is above the continuous rating" },
+  { name: "Cell imbalance", expr: "cell_v_diff * 1000", unit: "mV", note: "Assumes the BMS reports volts" },
+  { name: "Speed from motor rpm", expr: "rpm * 0.02394", unit: "km/h", note: "Gear 3.2, wheel radius 0.2032 m" },
+  { name: "Speed minus rpm-speed", expr: "speed - rpm * 0.02394", unit: "km/h", note: "Large gap = wheel slip or a wrong sensor" },
+  { name: "Motor torque (estimate)", expr: "0.64 * mot_current", unit: "Nm", note: "Assumes 0.64 Nm per A" },
+  { name: "Hottest part", expr: "max(temp_motor, max(temp_inv, temp_cell_max))", unit: "°C" },
+  { name: "Throttle and brake together", expr: "min(throttle, brake)", unit: "%", note: "Should stay near 0" },
+];
 type Pt = { t: number } & Record<string, number | null>;
 
 export default function MathWorkspaceView() {
@@ -58,6 +72,8 @@ export default function MathWorkspaceView() {
     return () => clearInterval(id);
   }, []);
 
+  const addPreset = (pr: (typeof PRESETS)[number]) =>
+    setChans((c) => (c.some((x) => x.expr === pr.expr) ? c : [...c, { id: Date.now(), name: pr.name, expr: pr.expr, unit: pr.unit, note: pr.note }]));
   const check = expr.trim() ? compile(expr) : null;
   const add = () => {
     if (!name.trim() || !check || !check.ok) return;
@@ -73,6 +89,18 @@ export default function MathWorkspaceView() {
       <p className="text-sm text-muted-foreground">Formulas over live channels. Saved in this browser only.</p>
 
       <div className="rounded-md border border-border bg-card p-4">
+        <div className="mb-2 text-xs text-muted-foreground">Tap to add</div>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {PRESETS.map((pr) => {
+            const on = chans.some((x) => x.expr === pr.expr);
+            return (
+              <button key={pr.expr} onClick={() => addPreset(pr)} disabled={on} title={pr.note} className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-40">
+                {pr.name}
+              </button>
+            );
+          })}
+        </div>
+        <div className="mb-2 text-xs text-muted-foreground">Or write your own formula</div>
         <div className="flex flex-wrap gap-2">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" aria-label="Channel name" className="w-40 rounded-md border border-border bg-input px-2 py-1.5 text-sm" />
           <input value={expr} onChange={(e) => setExpr(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="power_kw * 1000 / (volt * curr)" aria-label="Formula" className="num min-w-64 flex-1 rounded-md border border-border bg-input px-2 py-1.5 text-sm" />
@@ -85,7 +113,7 @@ export default function MathWorkspaceView() {
       </div>
 
       {chans.length === 0 ? (
-        <div className="rounded-md border border-border bg-card p-8 text-center text-sm text-muted-foreground">No math channels yet.</div>
+        <div className="rounded-md border border-border bg-card p-8 text-center text-sm text-muted-foreground">No channels yet. Tap one above.</div>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -95,8 +123,9 @@ export default function MathWorkspaceView() {
                   <div className="text-sm"><i className="mr-2 inline-block h-2 w-2 rounded-full" style={{ background: colors[i % colors.length] }} />{c.name}</div>
                   <button onClick={() => setChans((cs) => cs.filter((x) => x.id !== c.id))} className="text-xs text-muted-foreground hover:text-foreground" aria-label={`Remove ${c.name}`}>Remove</button>
                 </div>
-                <div className="num mt-1 text-3xl leading-none" style={{ color: cur[c.id] === null ? "var(--muted-foreground)" : undefined }}>{cur[c.id] === null || cur[c.id] === undefined ? "—" : +(cur[c.id] as number).toFixed(3)}</div>
+                <div className="num mt-1 text-3xl leading-none" style={{ color: cur[c.id] === null ? "var(--muted-foreground)" : undefined }}>{cur[c.id] === null || cur[c.id] === undefined ? "—" : +(cur[c.id] as number).toFixed(2)}{c.unit && <span className="ml-1 text-sm text-muted-foreground">{c.unit}</span>}</div>
                 <div className="num mt-2 break-all text-xs text-muted-foreground">{c.expr}</div>
+                {c.note && <div className="mt-1 text-xs text-muted-foreground">{c.note}</div>}
               </div>
             ))}
           </div>
