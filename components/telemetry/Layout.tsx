@@ -133,7 +133,7 @@ export function Layout({ children, activeTab, setActiveTab, userRole, onLogout }
   };
 
   // Older pages mix real feed values with demo data (fake HR, camera, breach log...). Say so.
-  const LEGACY_TABS = new Set(["overview", "driver-interface", "unified-telemetry", "driver-analytics", "math-channels", "ev-mode", "tire-temp", "suspension", "map-gps"]);
+  const LEGACY_TABS = new Set(["overview", "driver-interface", "unified-telemetry", "math-channels", "ev-mode", "tire-temp", "suspension", "map-gps"]);
 
   const connectionLabel = isConnected ? "Connected" : isConnecting ? "Connecting…" : "Offline";
   const connectionDot = isConnected ? "bg-ok" : isConnecting ? "bg-warn" : "bg-crit";
