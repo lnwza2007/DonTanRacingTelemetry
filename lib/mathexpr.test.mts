@@ -1,0 +1,10 @@
+import { compile as c } from "./mathexpr.ts";
+const K=["speed","power_kw","volt","curr"];
+const compile=(e:string)=>c(e,K);
+import assert from "node:assert";
+const ok = compile("power_kw * 1000 / (volt * curr)");
+assert(ok.ok && Math.abs(ok.run({ power_kw: 10, volt: 400, curr: 25 }) - 1) < 1e-9);
+assert(compile("max(speed, 5) + 2").ok);
+for (const bad of ["process.exit()", "constructor", "a;b", "speed.toString()", "`x`", "speed[0]", "alert(1)", "'x'", "this", "(()=>1)()"]) assert(!compile(bad).ok, bad);
+assert(Number.isNaN((compile("speed + 1") as any).run({})));
+console.log("mathexpr tests OK");
