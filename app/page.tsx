@@ -118,10 +118,7 @@ function DashboardApp() {
 
       {/* Tire Surface & Brake Thermals Page */}
       {activeTab === "tire-temp" && (
-        <TireTempView 
-          telemetry={telemetry} 
-          tireTemps={tireTemps} 
-        />
+        <TireTempView />
       )}
 
       {/* Suspension Travel & GG Potentiometer Page */}
